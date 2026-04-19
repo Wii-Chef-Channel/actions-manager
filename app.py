@@ -115,6 +115,18 @@ def _relative_time(utc_str):
         return utc_str
 
 # ---------------------------------------------------------------------------
+# Error handlers
+# ---------------------------------------------------------------------------
+@app.errorhandler(500)
+def internal_error(error):
+    logger.error(f"Internal error: {error}")
+    return jsonify({"error": "Internal server error"}), 500
+
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({"error": "Not found"}), 404
+
+# ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 @app.route("/")
