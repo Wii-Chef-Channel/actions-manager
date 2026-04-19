@@ -469,8 +469,15 @@ def config():
         full_config = cfg
         if data.get("github_pat"): full_config["github_pat"] = data["github_pat"]
         if data.get("org"): full_config["org"] = data["org"]
-        if data.get("repos"): full_config["repos"] = data["repos"]
         if data.get("timezone"): full_config["timezone"] = data["timezone"]
+        # Merge repos config instead of replacing — prevents wiping repos
+        # that weren't included in a partial update
+        if data.get("repos"):
+            for rname, rcfg in data["repos"].items():
+                if rname not in full_config.get("repos", {}):
+                    full_config.setdefault("repos", {})[rname] = {}
+                if isinstance(rcfg, dict):
+                    full_config["repos"][rname].update(rcfg)
         _atomic_write(CONFIG_PATH, full_config)
         
         with _cache_lock:
@@ -497,7 +504,7 @@ def config():
 def scheduler_status():
     """Get or set scheduler state."""
     if request.method == "POST":
-        data = request.get_json()
+        data = request.get_json(silent=True)
         if not data:
             return jsonify({"error": "Missing JSON body"}), 400
         enabled = data.get("enabled", data.get("running"))
