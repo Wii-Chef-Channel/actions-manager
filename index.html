@@ -571,6 +571,7 @@ body {
 let state = {
   repos: [],
   workflows: {},
+  branches: {},
   selectedRepos: new Set(),
   selectedWorkflows: new Set(),
   expandedRepos: new Set(),
@@ -778,8 +779,9 @@ async function loadWorkflows(repoName) {
       console.warn('Failed to fetch branches for', repoName, e);
       branches = [];
     }
+    state.branches[repoName] = branches;
 
-    renderWorkflows(repoName, branches);
+    renderWorkflows(repoName);
 
     // Load last run for all workflows in one batch call
     const wfIds = (data.workflows || []).map(wf => wf.id);
@@ -792,7 +794,7 @@ async function loadWorkflows(repoName) {
         state.workflows[repoName].forEach(wf => {
           if (runs[wf.id]) wf.last_run = runs[wf.id];
         });
-        if (state.activeRepo === repoName) renderWorkflows(repoName, branches);
+        if (state.activeRepo === repoName) renderWorkflows(repoName);
       }
     }
   } catch (e) {
@@ -800,8 +802,9 @@ async function loadWorkflows(repoName) {
   }
 }
 
-function renderWorkflows(repoName, branches = []) {
+function renderWorkflows(repoName) {
   const workflows = state.workflows[repoName] || [];
+  const branches = state.branches[repoName] || [];
   const body = document.getElementById('content-body');
   if (workflows.length === 0) {
     body.innerHTML = '<div class="empty-state"><p>No workflows found for this repository.</p></div>';
