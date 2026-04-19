@@ -768,7 +768,18 @@ async function loadWorkflows(repoName) {
   try {
     const data = await api(`/api/repos/${repoName}/workflows`);
     state.workflows[repoName] = data.workflows || [];
-    renderWorkflows(repoName);
+
+    // Load branches for this repo
+    let branches = [];
+    try {
+      const branchData = await api(`/api/repos/${repoName}/branches`);
+      branches = branchData.branches || [];
+    } catch (e) {
+      console.warn('Failed to fetch branches for', repoName, e);
+      branches = [];
+    }
+
+    renderWorkflows(repoName, branches);
 
     // Load last run for all workflows in one batch call
     const wfIds = (data.workflows || []).map(wf => wf.id);
@@ -781,7 +792,7 @@ async function loadWorkflows(repoName) {
         state.workflows[repoName].forEach(wf => {
           if (runs[wf.id]) wf.last_run = runs[wf.id];
         });
-        if (state.activeRepo === repoName) renderWorkflows(repoName);
+        if (state.activeRepo === repoName) renderWorkflows(repoName, branches);
       }
     }
   } catch (e) {
@@ -789,13 +800,18 @@ async function loadWorkflows(repoName) {
   }
 }
 
-function renderWorkflows(repoName) {
+function renderWorkflows(repoName, branches = []) {
   const workflows = state.workflows[repoName] || [];
   const body = document.getElementById('content-body');
   if (workflows.length === 0) {
     body.innerHTML = '<div class="empty-state"><p>No workflows found for this repository.</p></div>';
     return;
   }
+
+  const defaultBranch = state.repos.find(r => r.name === repoName)?.default_branch || 'main';
+  const branchOptions = branches.length > 0
+    ? branches.map(b => `<option value="${b}" ${b === defaultBranch ? 'selected' : ''}>${b}</option>`).join('')
+    : `<option value="${defaultBranch}">${defaultBranch}</option>`;
 
   body.innerHTML = `
     <table class="wf-table">
@@ -813,11 +829,13 @@ function renderWorkflows(repoName) {
       <tbody>
         ${workflows.map(wf => {
           const checked = state.selectedWorkflows.has(`${repoName}:${wf.id}`);
-          const defaultBranch = state.repos.find(r => r.name === repoName)?.default_branch || 'main';
-          const branch = wf.branch || defaultBranch;
+          const storedBranch = wf.branch || defaultBranch;
           const isDisabled = wf.state === 'disabled_manually';
           const lastTriggered = wf.last_triggered ? new Date(wf.last_triggered * 1000) : null;
           const lastTriggeredStr = lastTriggered ? lastTriggered.toLocaleString() : 'Never';
+          const branchOption = branches.length > 0
+            ? branches.map(b => `<option value="${b}" ${b === storedBranch ? 'selected' : ''}>${b}</option>`).join('')
+            : `<option value="${storedBranch}">${storedBranch}</option>`;
 
           return `
             <tr>
@@ -840,11 +858,6 @@ function renderWorkflows(repoName) {
               </td>
               <td style="white-space:nowrap;font-size:12px;color:var(--text-muted)">
                 ${lastTriggeredStr}
-              </td>
-              <td>
-                <div class="schedule-toggle ${wf.enabled_schedule ? 'active' : ''}"
-                  onclick="toggleWorkflowSchedule('${repoName}', ${wf.id})"
-                  title="${wf.enabled_schedule ? 'Schedule enabled' : 'Schedule disabled'}"></div>
               </td>
               <td style="white-space:nowrap">
                 ${(() => {
@@ -875,15 +888,13 @@ function renderWorkflows(repoName) {
               `;
                 })()}
               </td>
-              <td>
+              <td style="white-space:nowrap">
                 <select class="branch-select" onchange="updateBranch('${repoName}', ${wf.id}, this.value)">
-                  <option value="main" ${branch === 'main' ? 'selected' : ''}>main</option>
-                  <option value="master" ${branch === 'master' ? 'selected' : ''}>master</option>
-                  <option value="develop" ${branch === 'develop' ? 'selected' : ''}>develop</option>
+                  ${branchOption}
                 </select>
               </td>
-              <td>
-                <button class="btn btn-sm btn-primary" onclick="triggerWorkflow('${repoName}', ${wf.id}, '${branch.replace(/'/g, "\\'")}')"
+              <td style="white-space:nowrap">
+                <button class="btn btn-sm btn-primary" onclick="triggerWorkflow('${repoName}', ${wf.id})"
                   ${isDisabled ? 'disabled title="Workflow is disabled on GitHub"' : ''}>
                   ▶ Run
                 </button>
@@ -1014,8 +1025,20 @@ async function updateCustomCron(repoName, workflowId, value) {
 // ---------------------------------------------------------------------------
 // Trigger
 // ---------------------------------------------------------------------------
-async function triggerWorkflow(repoName, workflowId, branch) {
-  const btn = event.target;
+async function triggerWorkflow(repoName, workflowId) {
+  // Read the branch from the DOM select element for this workflow
+  const rows = document.querySelectorAll('#content-body .wf-table tbody tr');
+  let branch = 'main';
+  for (const row of rows) {
+    const btn = row.querySelector(`button[onclick*="triggerWorkflow('${repoName}', ${workflowId})"]`);
+    if (btn) {
+      const select = row.querySelector('.branch-select');
+      if (select) branch = select.value;
+      break;
+    }
+  }
+
+  const btn = event.target.closest('button');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>';
 
@@ -1041,9 +1064,22 @@ async function triggerWorkflow(repoName, workflowId, branch) {
 async function triggerSelected() {
   const items = [];
   state.selectedWorkflows.forEach(key => {
-    const [repo, wfId] = key.split(':');
-    const wf = state.workflows[repo]?.find(w => w.id === parseInt(wfId));
-    if (wf) items.push({ repo, workflow_id: wfId, name: wf.name, branch: wf.branch || 'main' });
+    const [repo, wfIdStr] = key.split(':');
+    const wf = state.workflows[repo]?.find(w => w.id === parseInt(wfIdStr));
+    if (wf) {
+      // Read the branch from the DOM select element
+      const rows = document.querySelectorAll('#content-body .wf-table tbody tr');
+      let branch = wf.branch || 'main';
+      for (const row of rows) {
+        const checkbox = row.querySelector('input[onclick*="toggleWorkflow(\'' + repo + '\', ' + wf.id + ')"');
+        if (checkbox) {
+          const select = row.querySelector('.branch-select');
+          if (select) branch = select.value;
+          break;
+        }
+      }
+      items.push({ repo, workflow_id: wf.id, name: wf.name, branch });
+    }
   });
   if (items.length === 0) return;
 

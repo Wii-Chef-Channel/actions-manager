@@ -381,6 +381,20 @@ def get_batch_last_run(repo_name):
 
     return jsonify(results)
 
+@app.route("/api/repos/<repo_name>/branches")
+def get_branches(repo_name):
+    """List branches for a repo."""
+    org = _get_org_name()
+    err = _validate_name(repo_name, "repo")
+    if err: return jsonify({"error": err}), 400
+
+    try:
+        data = _github_get(f"https://api.github.com/repos/{org}/{repo_name}/branches")
+        branches = [b["name"] for b in data] if isinstance(data, list) else []
+        return jsonify({"branches": branches})
+    except RuntimeError as e:
+        return jsonify({"error": str(e)}), 502
+
 @app.route("/api/repos/<repo_name>/workflows/<workflow_id>/trigger", methods=["POST"])
 def trigger_workflow(repo_name, workflow_id):
     """Trigger a workflow_dispatch on a workflow."""
