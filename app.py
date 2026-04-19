@@ -6,6 +6,8 @@ import time
 import threading
 import logging
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, jsonify, request, send_from_directory
 import requests
 from croniter import croniter
@@ -261,21 +263,20 @@ def get_last_run(repo_name, workflow_id):
 
 @app.route("/api/repos/<repo_name>/workflows/batch-last-run", methods=["POST"])
 def get_batch_last_run(repo_name):
-    """Get last run for multiple workflows in one call."""
+    """Get last run for multiple workflows in parallel."""
     body = request.get_json() or {}
     workflow_ids = body.get("workflow_ids", [])
     if not workflow_ids:
         return jsonify({})
 
-    results = {}
-    for wf_id in workflow_ids:
+    def fetch_one(wid):
         runs = _github_get(
             f"https://api.github.com/repos/{ORG_NAME}/{repo_name}/actions/runs",
             {"head_branch": "", "event": "schedule", "per_page": 1},
         )
         if runs and isinstance(runs, list) and len(runs) > 0:
             r = runs[0]
-            results[str(wf_id)] = {
+            return str(wid), {
                 "id": r["id"],
                 "status": r["status"],
                 "conclusion": r.get("conclusion"),
@@ -285,6 +286,11 @@ def get_batch_last_run(repo_name):
                 "event": r.get("event"),
                 "display_url": r.get("html_url", ""),
             }
+        return str(wid), None
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        results = dict(executor.map(fetch_one, workflow_ids))
+
     return jsonify(results)
 
 @app.route("/api/repos/<repo_name>/workflows/<workflow_id>/trigger", methods=["POST"])
@@ -425,7 +431,9 @@ def _scheduler_loop():
         try:
             config = _load_config()
             repos_config = config.get("repos", {})
-            now = datetime.now(timezone.utc)
+            # Use configured timezone for cron evaluation
+            tz = ZoneInfo(config.get("timezone", "UTC"))
+            now = datetime.now(tz)
 
             for repo_name, repo_cfg in repos_config.items():
                 if not repo_cfg.get("enabled", False):

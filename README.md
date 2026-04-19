@@ -169,10 +169,17 @@ Click **⚙ Config** to:
 
 Portainer's Repository tab:
 1. Clones the git repo onto BanaNAS at `/var/lib/docker/volumes/portainer_portainer-data/_data/compose/<hash>/actions-manager`
-2. Builds the Docker image from `Dockerfile`
+2. Builds the Docker image from `Dockerfile` (runs as non-root `appuser`, uses gunicorn)
 3. Runs the container with your env vars
 
 No SSH needed — Portainer handles everything from the web UI.
+
+## Production Notes
+
+- **Runs as non-root**: Dockerfile creates `appuser` and switches with `USER`
+- **Gunicorn**: 1 worker, 4 threads (workers=1 keeps the scheduler thread singleton)
+- **Timezone**: Scheduler cron evaluation uses the `TIMEZONE` env var via Python `zoneinfo`
+- **Atomic writes**: Config saved via write-to-temp + `os.replace()` to prevent corruption
 
 ## Local Development
 
