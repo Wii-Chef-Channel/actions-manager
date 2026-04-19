@@ -455,41 +455,47 @@ def config():
     cfg = _load_config()
 
     if request.method == "POST":
-        data = request.get_json()
-        if data.get("github_pat"):
-            new_pat = data["github_pat"]
-            r = requests.get(
-                "https://api.github.com/user",
-                headers={"Authorization": f"token {new_pat}", "Accept": "application/vnd.github+json"},
-                timeout=10,
-            )
-            if r.status_code != 200:
-                return jsonify({"error": "Invalid PAT"}), 400
-        
-        full_config = cfg
-        if data.get("github_pat"): full_config["github_pat"] = data["github_pat"]
-        if data.get("org"): full_config["org"] = data["org"]
-        if data.get("timezone"): full_config["timezone"] = data["timezone"]
-        # Merge repos config instead of replacing — prevents wiping repos
-        # that weren't included in a partial update
-        if data.get("repos"):
-            for rname, rcfg in data["repos"].items():
-                if rname not in full_config.get("repos", {}):
-                    full_config.setdefault("repos", {})[rname] = {}
-                if isinstance(rcfg, dict):
-                    full_config["repos"][rname].update(rcfg)
-        _atomic_write(CONFIG_PATH, full_config)
-        
-        with _cache_lock:
-            _cache.clear()
-            _cache["repos"] = {"data": None, "ts": 0}
-            _cache["workflows"] = {}
-        _invalidate_pat_cache()
-        
-        was_running = _scheduler_state["running"]
-        _stop_scheduler()
-        if was_running: _start_scheduler()
-        return jsonify({"message": "Config saved"})
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({"error": "Missing JSON body"}), 400
+        try:
+            if data.get("github_pat"):
+                new_pat = data["github_pat"]
+                r = requests.get(
+                    "https://api.github.com/user",
+                    headers={"Authorization": f"token {new_pat}", "Accept": "application/vnd.github+json"},
+                    timeout=10,
+                )
+                if r.status_code != 200:
+                    return jsonify({"error": "Invalid PAT"}), 400
+
+            full_config = cfg
+            if data.get("github_pat"): full_config["github_pat"] = data["github_pat"]
+            if data.get("org"): full_config["org"] = data["org"]
+            if data.get("timezone"): full_config["timezone"] = data["timezone"]
+            # Merge repos config instead of replacing — prevents wiping repos
+            # that weren't included in a partial update
+            if data.get("repos"):
+                for rname, rcfg in data["repos"].items():
+                    if rname not in full_config.get("repos", {}):
+                        full_config.setdefault("repos", {})[rname] = {}
+                    if isinstance(rcfg, dict):
+                        full_config["repos"][rname].update(rcfg)
+            _atomic_write(CONFIG_PATH, full_config)
+
+            with _cache_lock:
+                _cache.clear()
+                _cache["repos"] = {"data": None, "ts": 0}
+                _cache["workflows"] = {}
+            _invalidate_pat_cache()
+
+            was_running = _scheduler_state["running"]
+            _stop_scheduler()
+            if was_running: _start_scheduler()
+            return jsonify({"message": "Config saved"})
+        except Exception as e:
+            logger.exception(f"Config save error: {e}")
+            return jsonify({"error": str(e)}), 500
 
     pat_set = cfg.get("github_pat") or os.environ.get("GITHUB_PAT", "")
     return jsonify({
