@@ -601,19 +601,22 @@ function saveState() {
 // API helpers
 // ---------------------------------------------------------------------------
 async function api(path, opts = {}) {
-  const res = await fetch(path, {
-    headers: { 'Content-Type': 'application/json' },
-    ...opts,
-  });
-  const text = await res.text();
   try {
-    const data = JSON.parse(text);
+    const res = await fetch(path, {
+      headers: { 'Content-Type': 'application/json' },
+      ...opts,
+    });
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      throw new Error(`Invalid JSON from server: ${text.slice(0, 100)}...`);
+    }
     if (!res.ok) throw new Error(data.error || data.message || `HTTP ${res.status}`);
     return data;
   } catch (e) {
-    if (e instanceof SyntaxError) {
-      throw new Error(`Server returned HTML instead of JSON. Check container logs.`);
-    }
+    console.error(`API Error (${path}):`, e);
     throw e;
   }
 }
@@ -666,11 +669,12 @@ async function loadRepos() {
 
 function renderRepos() {
   const el = document.getElementById('repo-list');
-  if (state.repos.length === 0) {
+  const repos = state.repos || [];
+  if (repos.length === 0) {
     el.innerHTML = '<div class="empty-state"><p>No repos found.</p></div>';
     return;
   }
-  el.innerHTML = state.repos.map(repo => {
+  el.innerHTML = repos.map(repo => {
     const workflows = state.workflows[repo.name] || [];
     const enabled = state.selectedRepos.has(repo.name);
     const expanded = state.expandedRepos.has(repo.name);
@@ -763,11 +767,11 @@ async function loadWorkflows(repoName) {
 
   try {
     const data = await api(`/api/repos/${repoName}/workflows`);
-    state.workflows[repoName] = data.workflows;
+    state.workflows[repoName] = data.workflows || [];
     renderWorkflows(repoName);
 
     // Load last run for all workflows in one batch call
-    const wfIds = data.workflows.map(wf => wf.id);
+    const wfIds = (data.workflows || []).map(wf => wf.id);
     if (wfIds.length > 0) {
       const runs = await api(`/api/repos/${repoName}/workflows/batch-last-run`, {
         method: "POST",
@@ -786,9 +790,12 @@ async function loadWorkflows(repoName) {
 }
 
 function renderWorkflows(repoName) {
-  const workflows = state.workflows[repoName];
-  if (!workflows) return;
+  const workflows = state.workflows[repoName] || [];
   const body = document.getElementById('content-body');
+  if (workflows.length === 0) {
+    body.innerHTML = '<div class="empty-state"><p>No workflows found for this repository.</p></div>';
+    return;
+  }
 
   body.innerHTML = `
     <table class="wf-table">
@@ -1218,7 +1225,7 @@ function startAutoRefresh() {
     if (state.activeRepo) {
       try {
         const data = await api(`/api/repos/${state.activeRepo}/workflows`);
-        state.workflows[state.activeRepo] = data.workflows;
+        state.workflows[state.activeRepo] = data.workflows || [];
         renderWorkflows(state.activeRepo);
       } catch (e) {
         console.error('Auto-refresh failed:', e);
