@@ -49,9 +49,13 @@ def _ensure_config():
 def _load_config():
     with _config_lock:
         if os.path.exists(CONFIG_PATH):
-            with open(CONFIG_PATH) as f:
-                return json.load(f)
-    return {}
+            try:
+                with open(CONFIG_PATH) as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, IOError) as e:
+                logger.error(f"Failed to load config: {e}")
+                return {"org": ORG_NAME, "repos": {}}
+    return {"org": ORG_NAME, "repos": {}}
 
 _ensure_config()
 
@@ -129,30 +133,35 @@ def _headers():
 # ---------------------------------------------------------------------------
 def _github_get(url, params=None):
     """GET with pagination and rate-limit awareness."""
-    params = params or {}
     results = []
     page = 1
+    query_params = params or {}
     while True:
-        r = requests.get(url, headers=_headers(), params={**params, "per_page": 100, "page": page}, timeout=15)
+        r = requests.get(url, headers=_headers(), params={**query_params, "per_page": 100, "page": page}, timeout=15)
         if r.status_code == 401:
             raise RuntimeError("GitHub PAT is invalid or expired")
         if r.status_code == 403:
-            raise RuntimeError(f"GitHub API rate limit exceeded. Retry in 60s")
+            raise RuntimeError("GitHub API rate limit exceeded. Retry in 60s")
         if r.status_code != 200:
-            raise RuntimeError(f"GitHub API error {r.status_code}: {r.text[:200]}")
+            try:
+                msg = r.json().get("message", r.text[:200])
+            except:
+                msg = r.text[:200]
+            raise RuntimeError(f"GitHub API error {r.status_code}: {msg}")
+        
         data = r.json()
-        if isinstance(data, dict):
-            # Error response from GitHub API (e.g., {"message": "Bad credentials"})
-            raise RuntimeError(f"GitHub API error: {data.get('message', r.text[:200])}")
+        
+        # If it's a list, we paginate
         if isinstance(data, list):
             results.extend(data)
+            link = r.headers.get("Link", "")
+            if 'rel="next"' not in link:
+                break
+            page += 1
+        # If it's a dict, we return it immediately (no pagination for dicts)
         else:
             return data
-        # Check if there are more pages
-        link = r.headers.get("Link", "")
-        if 'rel="next"' not in link:
-            break
-        page += 1
+            
     return results
 
 def _github_post(url, body=None):
@@ -268,7 +277,8 @@ def get_workflows(repo_name):
     repos_config = _load_config().get("repos", {})
     repo_config = repos_config.get(repo_name, {})
 
-    workflows = _github_get(f"https://api.github.com/repos/{ORG_NAME}/{repo_name}/actions/workflows")
+    data = _github_get(f"https://api.github.com/repos/{ORG_NAME}/{repo_name}/actions/workflows")
+    workflows = data.get("workflows", []) if isinstance(data, dict) else data
     result = []
     for w in workflows:
         wid = w["id"]
@@ -296,10 +306,11 @@ def get_workflows(repo_name):
 @app.route("/api/repos/<repo_name>/workflows/<workflow_id>/last-run")
 def get_last_run(repo_name, workflow_id):
     """Get the last run for a specific workflow."""
-    runs = _github_get(
+    data = _github_get(
         f"https://api.github.com/repos/{ORG_NAME}/{repo_name}/actions/workflows/{workflow_id}/runs",
-        {"per_page": 1},
+        {"head_branch": "", "event": "schedule", "per_page": 1},
     )
+    runs = data.get("workflow_runs", []) if isinstance(data, dict) else data
     if runs and isinstance(runs, list) and len(runs) > 0:
         r = runs[0]
         return jsonify({
@@ -329,10 +340,11 @@ def get_batch_last_run(repo_name):
             return jsonify({"error": f"Invalid workflow_id: {wid!r}"}), 400
 
     def fetch_one(wid):
-        runs = _github_get(
+        data = _github_get(
             f"https://api.github.com/repos/{ORG_NAME}/{repo_name}/actions/workflows/{wid}/runs",
-            {"per_page": 1},
+            {"head_branch": "", "event": "schedule", "per_page": 1},
         )
+        runs = data.get("workflow_runs", []) if isinstance(data, dict) else data
         if runs and isinstance(runs, list) and len(runs) > 0:
             r = runs[0]
             return str(wid), {
@@ -420,7 +432,7 @@ def config():
 
     if request.method == "POST":
         data = request.get_json()
-        # Validate PAT explicitly before saving (check new PAT, not old one)
+        # Validate PAT explicitly before saving
         if data.get("github_pat"):
             new_pat = data["github_pat"]
             r = requests.get(
@@ -487,9 +499,6 @@ def enforce_auth():
 
 # ---------------------------------------------------------------------------
 # Content-Type enforcement on mutating endpoints
-# Requires application/json on POST/PUT/PATCH/DELETE to prevent CSRF via
-# form submissions. Only applies to /api/* routes; GET routes (index,
-# health check) are unaffected.
 # ---------------------------------------------------------------------------
 @app.before_request
 def enforce_content_type():
@@ -507,7 +516,7 @@ def _check_basic_auth(auth_header):
             return False
         decoded = base64.b64decode(credentials).decode("utf-8")
         user, password = decoded.split(":", 1)
-        # Use hmac.compare_digest for constant-time comparison (fix #4)
+        # Use hmac.compare_digest for constant-time comparison
         user_ok = hmac.compare_digest(user, BASIC_AUTH_USER)
         pass_ok = hmac.compare_digest(password, BASIC_AUTH_PASS)
         return user_ok and pass_ok
@@ -566,7 +575,6 @@ def _scheduler_loop():
                     last = _get_last_trigger(key)
 
                     # Check if this cron expression is due right now
-                    # Fix #7: is_due only if prev_trigger fell within the last 60 seconds
                     prev_trigger = croniter(cron_expr, now).get_prev(datetime)
                     is_due = 0 <= (now - prev_trigger).total_seconds() < 60
 
@@ -582,7 +590,7 @@ def _scheduler_loop():
                             )
                             _set_last_trigger(key, now.timestamp())
 
-                            # Update config with last_triggered timestamp (in-memory, no re-read)
+                            # Update config with last_triggered timestamp
                             if repo_name not in config.get("repos", {}):
                                 config["repos"][repo_name] = {}
                             if "workflows" not in config["repos"][repo_name]:
