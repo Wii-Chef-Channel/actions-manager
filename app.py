@@ -612,12 +612,18 @@ def _set_last_trigger(key, ts):
     with _scheduler_lock:
         _scheduler_state["last_triggers"][key] = ts
 
+def _scheduler_load_config():
+    """Reload config from disk each tick to stay in sync with API changes.
+    last_triggered values are already written to disk at the end of each tick,
+    so they are naturally picked up on reload."""
+    return _load_config()
+
 def _scheduler_loop():
     """Background thread: check enabled workflows every 60s and trigger if due."""
     logger.info("Scheduler started")
     while _scheduler_state["running"]:
         try:
-            config = _load_config()
+            config = _scheduler_load_config()
             repos_config = config.get("repos", {}) or {}
             org = config.get("org") or ORG_NAME
             try:
@@ -659,9 +665,10 @@ def _scheduler_loop():
                         except RuntimeError as e:
                             logger.error(f"Scheduler failed {repo_name}/{wf_id}: {e}")
 
-            if triggered_any:
-                config.setdefault("_scheduler", {})["last_triggers"] = dict(_scheduler_state["last_triggers"])
-                _atomic_write(CONFIG_PATH, config)
+            # Always persist last_triggers (even if nothing triggered) so
+            # the value survives restarts
+            config.setdefault("_scheduler", {})["last_triggers"] = dict(_scheduler_state["last_triggers"])
+            _atomic_write(CONFIG_PATH, config)
 
         except Exception as e:
             logger.error(f"Scheduler loop error: {e}")

@@ -982,7 +982,15 @@ async function updateBranch(repoName, workflowId, branch) {
   const wf = workflows.find(w => w.id === workflowId);
   if (!wf) return;
   wf.branch = branch;
-  saveConfigSilent();
+  // Save immediately (silently) so the value persists across page reloads
+  try {
+    await api(`/api/repos/${repoName}/workflow-config`, {
+      method: 'POST',
+      body: JSON.stringify({ workflows: { [workflowId]: { branch } } }),
+    });
+  } catch (e) {
+    console.error('Failed to save branch:', e);
+  }
 }
 
 const FREQUENCY_MAP = {
@@ -1030,7 +1038,7 @@ async function updateFrequency(repoName, workflowId, selectEl) {
   }
 
   renderWorkflows(repoName);
-  // Save directly via API
+  // Save directly via API — re-render on success to stay in sync
   try {
     const reposCfg = {};
     reposCfg[repoName] = {
@@ -1046,8 +1054,16 @@ async function updateFrequency(repoName, workflowId, selectEl) {
       method: 'POST',
       body: JSON.stringify({ repos: reposCfg }),
     });
+    // Re-render to confirm server accepted the value
+    const fresh = await api(`/api/repos/${repoName}/workflows`);
+    state.workflows[repoName] = fresh.workflows || [];
+    renderWorkflows(repoName);
   } catch (e) {
     console.error('Failed to save frequency:', e);
+    toast(`Failed to save frequency: ${e.message}`, 'error');
+    // Re-render to revert UI to server state
+    await loadWorkflows(repoName);
+    renderWorkflows(repoName);
   }
 }
 
@@ -1290,6 +1306,10 @@ async function openConfig() {
           html += `<option value="15m" ${displayFreq === '15m' ? 'selected' : ''}>15m</option>`;
           html += `<option value="30m" ${displayFreq === '30m' ? 'selected' : ''}>30m</option>`;
           html += `<option value="1h" ${displayFreq === '1h' ? 'selected' : ''}>1h</option>`;
+          html += `<option value="2h" ${displayFreq === '2h' ? 'selected' : ''}>2h</option>`;
+          html += `<option value="4h" ${displayFreq === '4h' ? 'selected' : ''}>4h</option>`;
+          html += `<option value="6h" ${displayFreq === '6h' ? 'selected' : ''}>6h</option>`;
+          html += `<option value="12h" ${displayFreq === '12h' ? 'selected' : ''}>12h</option>`;
           html += `<option value="daily" ${displayFreq === 'daily' ? 'selected' : ''}>Daily</option>`;
           html += `<option value="custom" ${displayFreq === 'custom' ? 'selected' : ''}>Custom</option>`;
           html += `</select>`;
