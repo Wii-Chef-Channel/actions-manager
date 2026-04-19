@@ -287,11 +287,12 @@ def config():
 
     # Return config without PAT for display
     config = _load_config()
+    pat_set = config.get("github_pat") or os.environ.get("GITHUB_PAT", "")
     return jsonify({
         "org": config.get("org", ORG_NAME),
         "refresh_interval": REFRESH_INTERVAL,
         "timezone": TIMEZONE,
-        "pat_configured": bool(config.get("github_pat")),
+        "pat_configured": bool(pat_set),
         "repos": config.get("repos", {}),
     })
 
