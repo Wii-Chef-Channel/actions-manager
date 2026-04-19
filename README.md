@@ -237,6 +237,11 @@ docker run -d -p 5000:5000 \
 - Add `BASIC_AUTH_USER/PASS` for basic authentication
 - The PAT is never exposed in API responses or the UI
 - If `GITHUB_PAT` env var is not set, the app falls back to the PAT stored in `data/config.json`
+- **Content-Type enforcement**: All mutating endpoints require `application/json` Content-Type
+- **Constant-time password comparison**: Basic Auth uses `hmac.compare_digest()` to prevent timing attacks
+- **Input validation**: All repo names, workflow IDs, and branch names are validated before use
+- **Thread-safe**: Config reads/writes protected by `_config_lock`, cache by `_cache_lock`
+- **CSRF protection**: Mutating endpoints reject non-JSON Content-Type headers
 
 ## Updating
 

@@ -1,4 +1,5 @@
 import base64
+import hmac
 import re
 import os
 import json
@@ -15,7 +16,6 @@ from croniter import croniter
 # ---------------------------------------------------------------------------
 # Config from environment
 # ---------------------------------------------------------------------------
-GITHUB_PAT = os.environ.get("GITHUB_PAT", "")
 ORG_NAME = os.environ.get("ORG_NAME", "Wii-Chef-Channel")
 REFRESH_INTERVAL = int(os.environ.get("REFRESH_INTERVAL", "30"))
 TIMEZONE = os.environ.get("TIMEZONE", "UTC")
@@ -27,6 +27,33 @@ BASIC_AUTH_PASS = os.environ.get("BASIC_AUTH_PASS", "")
 # ---------------------------------------------------------------------------
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("actions-manager")
+
+# ---------------------------------------------------------------------------
+# Config path & helpers (moved to top so they're available at module load)
+# ---------------------------------------------------------------------------
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), "data", "config.json")
+_config_lock = threading.Lock()
+_cache_lock = threading.Lock()
+
+def _ensure_config():
+    """Auto-create config file on first run."""
+    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+    if not os.path.exists(CONFIG_PATH):
+        default = {
+            "org": ORG_NAME,
+            "repos": {},
+        }
+        with open(CONFIG_PATH, "w") as f:
+            json.dump(default, f, indent=2)
+
+def _load_config():
+    with _config_lock:
+        if os.path.exists(CONFIG_PATH):
+            with open(CONFIG_PATH) as f:
+                return json.load(f)
+    return {}
+
+_ensure_config()
 
 # ---------------------------------------------------------------------------
 # Flask app
@@ -64,15 +91,16 @@ def _validate_id(val, label="id"):
 def _atomic_write(path, data):
     """Write JSON atomically (write to temp -> rename) to prevent corruption."""
     tmp_path = path + ".tmp"
-    with open(tmp_path, "w") as f:
-        json.dump(data, f, indent=2)
-    os.replace(tmp_path, path)
+    with _config_lock:
+        with open(tmp_path, "w") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp_path, path)
 
 # ---------------------------------------------------------------------------
-# GitHub API helpers
+# GitHub PAT helper
 # ---------------------------------------------------------------------------
 def _get_pat():
-    """Get PAT from env var or config file."""
+    """Get PAT from env var or config file (dynamic read)."""
     pat = os.environ.get("GITHUB_PAT", "")
     if pat:
         return pat
@@ -82,6 +110,9 @@ def _get_pat():
 def _headers():
     return {"Authorization": f"token {_get_pat()}", "Accept": "application/vnd.github+json"}
 
+# ---------------------------------------------------------------------------
+# GitHub API helpers
+# ---------------------------------------------------------------------------
 def _github_get(url, params=None):
     """GET with pagination and rate-limit awareness."""
     results = []
@@ -172,7 +203,7 @@ def index():
 
 @app.route("/api/status")
 def status():
-    return jsonify({"status": "ok", "org": ORG_NAME, "pat_configured": bool(GITHUB_PAT)})
+    return jsonify({"status": "ok", "org": ORG_NAME, "pat_configured": bool(_get_pat())})
 
 @app.route("/api/repos")
 def get_repos():
@@ -180,8 +211,9 @@ def get_repos():
     repos_config = _load_config().get("repos", {})
     cache_key = "repos"
 
-    if _cache[cache_key]["data"] and (time.time() - _cache[cache_key]["ts"]) < CACHE_TTL_REPOS:
-        return jsonify(_cache[cache_key]["data"])
+    with _cache_lock:
+        if _cache[cache_key]["data"] and (time.time() - _cache[cache_key]["ts"]) < CACHE_TTL_REPOS:
+            return jsonify(_cache[cache_key]["data"])
 
     repos = _github_get(f"https://api.github.com/orgs/{ORG_NAME}/repos", {"type": "all", "sort": "updated"})
     # Filter to only repos that have workflows
@@ -202,7 +234,8 @@ def get_repos():
     # Sort: enabled first, then by name
     result.sort(key=lambda x: (not x["enabled"], x["name"]))
 
-    _cache[cache_key] = {"data": result, "ts": time.time()}
+    with _cache_lock:
+        _cache[cache_key] = {"data": result, "ts": time.time()}
     return jsonify({"repos": result})
 
 @app.route("/api/repos/<repo_name>/workflows")
@@ -210,8 +243,9 @@ def get_workflows(repo_name):
     """List workflows for a repo."""
     cache_key = f"workflows:{repo_name}"
 
-    if cache_key in _cache and _cache[cache_key]["data"] and (time.time() - _cache[cache_key]["ts"]) < CACHE_TTL_WORKFLOWS:
-        return jsonify(_cache[cache_key]["data"])
+    with _cache_lock:
+        if cache_key in _cache and _cache[cache_key]["data"] and (time.time() - _cache[cache_key]["ts"]) < CACHE_TTL_WORKFLOWS:
+            return jsonify(_cache[cache_key]["data"])
 
     repos_config = _load_config().get("repos", {})
     repo_config = repos_config.get(repo_name, {})
@@ -237,15 +271,16 @@ def get_workflows(repo_name):
             "trigger_error": None,
         })
 
-    _cache[cache_key] = {"data": result, "ts": time.time()}
+    with _cache_lock:
+        _cache[cache_key] = {"data": result, "ts": time.time()}
     return jsonify({"workflows": result})
 
 @app.route("/api/repos/<repo_name>/workflows/<workflow_id>/last-run")
 def get_last_run(repo_name, workflow_id):
-    """Get the last run for a workflow."""
+    """Get the last run for a specific workflow."""
     runs = _github_get(
-        f"https://api.github.com/repos/{ORG_NAME}/{repo_name}/actions/runs",
-        {"head_branch": "", "event": "schedule", "per_page": 1},
+        f"https://api.github.com/repos/{ORG_NAME}/{repo_name}/actions/workflows/{workflow_id}/runs",
+        {"per_page": 1},
     )
     if runs and isinstance(runs, list) and len(runs) > 0:
         r = runs[0]
@@ -271,8 +306,8 @@ def get_batch_last_run(repo_name):
 
     def fetch_one(wid):
         runs = _github_get(
-            f"https://api.github.com/repos/{ORG_NAME}/{repo_name}/actions/runs",
-            {"head_branch": "", "event": "schedule", "per_page": 1},
+            f"https://api.github.com/repos/{ORG_NAME}/{repo_name}/actions/workflows/{wid}/runs",
+            {"per_page": 1},
         )
         if runs and isinstance(runs, list) and len(runs) > 0:
             r = runs[0]
@@ -324,14 +359,31 @@ def trigger_selected():
     items = request.get_json().get("items", [])
     results = []
     for item in items:
+        repo = item.get("repo", "")
+        wf_id = str(item.get("workflow_id", ""))
+        branch = item.get("branch", "main")
+
+        # Validate inputs
+        err = _validate_name(repo, "repo")
+        if err:
+            results.append({"repo": repo, "name": item.get("name", ""), "success": False, "message": err})
+            continue
+        err = _validate_id(wf_id, "workflow_id")
+        if err:
+            results.append({"repo": repo, "name": item.get("name", ""), "success": False, "message": err})
+            continue
+        if branch and not re.match(r"^[a-zA-Z0-9_./-]+$", branch):
+            results.append({"repo": repo, "name": item.get("name", ""), "success": False, "message": "Invalid branch"})
+            continue
+
         try:
             result = _github_post(
-                f"https://api.github.com/repos/{ORG_NAME}/{item['repo']}/actions/workflows/{item['workflow_id']}/dispatches",
-                {"ref": item.get("branch", "main")},
+                f"https://api.github.com/repos/{ORG_NAME}/{repo}/actions/workflows/{wf_id}/dispatches",
+                {"ref": branch},
             )
-            results.append({"repo": item["repo"], "workflow": item["name"], "success": True, "message": "Triggered"})
+            results.append({"repo": repo, "name": item.get("name", ""), "success": True, "message": "Triggered"})
         except RuntimeError as e:
-            results.append({"repo": item["repo"], "workflow": item["name"], "success": False, "message": str(e)})
+            results.append({"repo": repo, "name": item.get("name", ""), "success": False, "message": str(e)})
     return jsonify({"results": results})
 
 @app.route("/api/config", methods=["GET", "POST"])
@@ -341,9 +393,14 @@ def config():
 
     if request.method == "POST":
         data = request.get_json()
-        # Validate PAT
+        # Validate PAT explicitly before saving (fix #3: check new PAT, not old one)
         if data.get("github_pat"):
-            r = requests.get("https://api.github.com/user", headers=_headers(), timeout=10)
+            new_pat = data["github_pat"]
+            r = requests.get(
+                "https://api.github.com/user",
+                headers={"Authorization": f"token {new_pat}", "Accept": "application/vnd.github+json"},
+                timeout=10,
+            )
             if r.status_code == 401:
                 return jsonify({"error": "Invalid PAT"}), 400
         # Save config atomically
@@ -356,8 +413,9 @@ def config():
             full_config["repos"] = data["repos"]
         _atomic_write(CONFIG_PATH, full_config)
         # Invalidate cache
-        _cache["repos"] = {"data": None, "ts": 0}
-        _cache["workflows"] = {}
+        with _cache_lock:
+            _cache["repos"] = {"data": None, "ts": 0}
+            _cache["workflows"] = {}
         # Restart scheduler with new config
         _stop_scheduler()
         _start_scheduler()
@@ -385,6 +443,20 @@ def scheduler_status():
         return jsonify({"running": _scheduler_state["running"]})
     return jsonify({"running": _scheduler_state["running"]})
 
+# ---------------------------------------------------------------------------
+# CSRF / Content-Type enforcement on mutating endpoints
+# ---------------------------------------------------------------------------
+@app.before_request
+def enforce_content_type():
+    """Require application/json on all mutating endpoints."""
+    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        ct = request.content_type or ""
+        if "application/json" not in ct:
+            return jsonify({"error": "Content-Type must be application/json"}), 415
+
+# ---------------------------------------------------------------------------
+# Basic Auth enforcement
+# ---------------------------------------------------------------------------
 @app.before_request
 def enforce_auth():
     """Enforce Basic Auth if credentials are configured."""
@@ -394,14 +466,17 @@ def enforce_auth():
             return jsonify({"error": "Authentication required"}), 401
 
 def _check_basic_auth(auth_header):
-    """Validate Basic Auth header."""
+    """Validate Basic Auth header with constant-time comparison."""
     try:
         scheme, credentials = auth_header.split(None, 1)
         if scheme.lower() != "basic":
             return False
         decoded = base64.b64decode(credentials).decode("utf-8")
         user, password = decoded.split(":", 1)
-        return user == BASIC_AUTH_USER and password == BASIC_AUTH_PASS
+        # Use hmac.compare_digest for constant-time comparison (fix #4)
+        user_ok = hmac.compare_digest(user, BASIC_AUTH_USER)
+        pass_ok = hmac.compare_digest(password, BASIC_AUTH_PASS)
+        return user_ok and pass_ok
     except Exception:
         return False
 
@@ -452,9 +527,9 @@ def _scheduler_loop():
                     last = _get_last_trigger(key)
 
                     # Check if this cron expression is due right now
-                    next_trigger = croniter(cron_expr, now).get_next(datetime)
+                    # Fix #7: is_due only if prev_trigger fell within the last 60 seconds
                     prev_trigger = croniter(cron_expr, now).get_prev(datetime)
-                    is_due = prev_trigger.replace(second=0, microsecond=0) <= now <= next_trigger.replace(second=0, microsecond=0)
+                    is_due = 0 <= (now - prev_trigger).total_seconds() < 60
 
                     if is_due:
                         if last and (now.timestamp() - last) < 120:
@@ -467,7 +542,7 @@ def _scheduler_loop():
                                 {"ref": branch},
                             )
                             _set_last_trigger(key, now.timestamp())
-                            
+
                             # Update config with last_triggered timestamp
                             config = _load_config()
                             if repo_name not in config.get("repos", {}):
@@ -480,7 +555,7 @@ def _scheduler_loop():
                             # Persist last_triggers to disk
                             config.setdefault("_scheduler", {})["last_triggers"] = dict(_scheduler_state["last_triggers"])
                             _atomic_write(CONFIG_PATH, config)
-                            
+
                             logger.info(f"Scheduled trigger: {repo_name}/{wf_id} at {now.isoformat()}")
                         except RuntimeError as e:
                             logger.error(f"Scheduler failed {repo_name}/{wf_id}: {e}")
@@ -512,30 +587,6 @@ def _stop_scheduler():
     if _scheduler_state["thread"]:
         _scheduler_state["thread"].join(timeout=10)
         _scheduler_state["thread"] = None
-
-# ---------------------------------------------------------------------------
-# Config helpers
-# ---------------------------------------------------------------------------
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), "data", "config.json")
-
-def _ensure_config():
-    """Auto-create config file on first run."""
-    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
-    if not os.path.exists(CONFIG_PATH):
-        default = {
-            "org": ORG_NAME,
-            "repos": {},
-        }
-        with open(CONFIG_PATH, "w") as f:
-            json.dump(default, f, indent=2)
-
-_ensure_config()
-
-def _load_config():
-    if os.path.exists(CONFIG_PATH):
-        with open(CONFIG_PATH) as f:
-            return json.load(f)
-    return {}
 
 # ---------------------------------------------------------------------------
 # Main
