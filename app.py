@@ -29,7 +29,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger("actions-manager")
 
 # ---------------------------------------------------------------------------
-# Config path & helpers (moved to top so they're available at module load)
+# Config path & helpers
 # ---------------------------------------------------------------------------
 CONFIG_PATH = os.environ.get("CONFIG_PATH", os.path.join(os.path.dirname(__file__), "data", "config.json"))
 _config_lock = threading.Lock()
@@ -103,7 +103,6 @@ def _atomic_write(path, data):
 # ---------------------------------------------------------------------------
 # GitHub PAT helper
 # ---------------------------------------------------------------------------
-# PAT cache: avoid disk reads on every API request
 _pat_cache = {"value": None, "ts": 0}
 _PAT_TTL = 30  # seconds
 
@@ -128,6 +127,11 @@ def _invalidate_pat_cache():
 def _headers():
     return {"Authorization": f"token {_get_pat()}", "Accept": "application/vnd.github+json"}
 
+def _get_org_name():
+    """Get Org Name from config or env."""
+    cfg = _load_config()
+    return cfg.get("org") or os.environ.get("ORG_NAME", "Wii-Chef-Channel")
+
 # ---------------------------------------------------------------------------
 # GitHub API helpers
 # ---------------------------------------------------------------------------
@@ -151,14 +155,12 @@ def _github_get(url, params=None):
         
         data = r.json()
         
-        # If it's a list, we paginate
         if isinstance(data, list):
             results.extend(data)
             link = r.headers.get("Link", "")
             if 'rel="next"' not in link:
                 break
             page += 1
-        # If it's a dict, we return it immediately (no pagination for dicts)
         else:
             return data
             
@@ -194,16 +196,12 @@ def _relative_time(utc_str):
         now = datetime.now(timezone.utc)
         delta = now - dt
         total_seconds = int(delta.total_seconds())
-        if total_seconds < 0:
-            return "in future"
-        if total_seconds < 60:
-            return f"{total_seconds}s ago"
+        if total_seconds < 0: return "in future"
+        if total_seconds < 60: return f"{total_seconds}s ago"
         minutes = total_seconds // 60
-        if minutes < 60:
-            return f"{minutes}m ago" if minutes != 1 else "1m ago"
+        if minutes < 60: return f"{minutes}m ago" if minutes != 1 else "1m ago"
         hours = minutes // 60
-        if hours < 24:
-            return f"{hours}h ago" if hours != 1 else "1h ago"
+        if hours < 24: return f"{hours}h ago" if hours != 1 else "1h ago"
         days = hours // 24
         return f"{days}d ago"
     except Exception:
@@ -230,12 +228,7 @@ def index():
 
 @app.route("/api/status")
 def status():
-    return jsonify({"status": "ok", "org": ORG_NAME, "pat_configured": bool(_get_pat())})
-
-def _get_org_name():
-    """Get Org Name from config or env."""
-    cfg = _load_config()
-    return cfg.get("org") or os.environ.get("ORG_NAME", "Wii-Chef-Channel")
+    return jsonify({"status": "ok", "org": _get_org_name(), "pat_configured": bool(_get_pat())})
 
 @app.route("/api/repos")
 def get_repos():
@@ -245,19 +238,19 @@ def get_repos():
     cache_key = f"repos:{org}"
 
     with _cache_lock:
-        if _cache.get(cache_key) and (time.time() - _cache[cache_key]["ts"]) < CACHE_TTL_REPOS:
+        if cache_key in _cache and _cache[cache_key]["data"] and (time.time() - _cache[cache_key]["ts"]) < CACHE_TTL_REPOS:
             return jsonify(_cache[cache_key]["data"])
 
-    # Try Org endpoint first, fallback to User endpoint
     try:
-        repos = _github_get(f"https://api.github.com/orgs/{org}/repos", {"type": "all", "sort": "updated"})
-    except RuntimeError:
-        logger.info(f"Org {org!r} not found, trying user endpoint")
-        repos = _github_get(f"https://api.github.com/users/{org}/repos", {"type": "all", "sort": "updated"})
+        try:
+            repos = _github_get(f"https://api.github.com/orgs/{org}/repos", {"type": "all", "sort": "updated"})
+        except RuntimeError:
+            logger.info(f"Org {org!r} not found, trying user endpoint")
+            repos = _github_get(f"https://api.github.com/users/{org}/repos", {"type": "all", "sort": "updated"})
+    except RuntimeError as e:
+        logger.error(f"Failed to fetch repos for {org!r}: {e}")
+        return jsonify({"repos": [], "error": str(e)}), 502
 
-    if isinstance(repos, dict) and "message" in repos:
-         return jsonify({"repos": [], "error": repos["message"]}), 500
-    
     result = []
     for r in repos:
         if not isinstance(r, dict): continue
@@ -273,17 +266,17 @@ def get_repos():
             "updated_at": r.get("updated_at"),
         })
 
-    # Sort: enabled first, then by name
     result.sort(key=lambda x: (not x["enabled"], x["name"]))
 
     with _cache_lock:
-        _cache[cache_key] = {"data": result, "ts": time.time()}
+        _cache[cache_key] = {"data": {"repos": result}, "ts": time.time()}
     return jsonify({"repos": result})
 
 @app.route("/api/repos/<repo_name>/workflows")
 def get_workflows(repo_name):
     """List workflows for a repo."""
-    cache_key = f"workflows:{repo_name}"
+    org = _get_org_name()
+    cache_key = f"workflows:{org}:{repo_name}"
 
     with _cache_lock:
         if cache_key in _cache and _cache[cache_key]["data"] and (time.time() - _cache[cache_key]["ts"]) < CACHE_TTL_WORKFLOWS:
@@ -292,77 +285,47 @@ def get_workflows(repo_name):
     repos_config = _load_config().get("repos", {})
     repo_config = repos_config.get(repo_name, {})
 
-    data = _github_get(f"https://api.github.com/repos/{ORG_NAME}/{repo_name}/actions/workflows")
-    workflows = data.get("workflows", []) if isinstance(data, dict) else data
-    result = []
-    for w in workflows:
-        wid = w["id"]
-        wcfg = repo_config.get("workflows", {}).get(str(wid), {})
-        # Read cron from config (set by UI) or fall back to old 'schedule' key
-        cron_expr = wcfg.get("cron", wcfg.get("schedule", ""))
-        result.append({
-            "id": wid,
-            "name": w["name"],
-            "path": w["path"],
-            "state": w["state"],  # active or disabled_manually
-            "enabled_schedule": wcfg.get("enabled_schedule", False),
-            "cron": cron_expr if cron_expr else "disabled",
-            "branch": wcfg.get("branch", ""),
-            "last_triggered": wcfg.get("last_triggered"),
-            "last_run": None,
-            "triggering": False,
-            "trigger_error": None,
-        })
+    try:
+        data = _github_get(f"https://api.github.com/repos/{org}/{repo_name}/actions/workflows")
+        workflows = data.get("workflows", []) if isinstance(data, dict) else data
+        result = []
+        for w in workflows:
+            wid = w["id"]
+            wcfg = repo_config.get("workflows", {}).get(str(wid), {})
+            cron_expr = wcfg.get("cron", wcfg.get("schedule", ""))
+            result.append({
+                "id": wid,
+                "name": w["name"],
+                "path": w["path"],
+                "state": w["state"],
+                "enabled_schedule": wcfg.get("enabled_schedule", False),
+                "cron": cron_expr if cron_expr else "disabled",
+                "branch": wcfg.get("branch", ""),
+                "last_triggered": wcfg.get("last_triggered"),
+                "last_run": None,
+                "triggering": False,
+                "trigger_error": None,
+            })
 
-    with _cache_lock:
-        _cache[cache_key] = {"data": result, "ts": time.time()}
-    return jsonify({"workflows": result})
+        with _cache_lock:
+            _cache[cache_key] = {"data": {"workflows": result}, "ts": time.time()}
+        return jsonify({"workflows": result})
+    except RuntimeError as e:
+        return jsonify({"error": str(e)}), 502
 
 @app.route("/api/repos/<repo_name>/workflows/<workflow_id>/last-run")
 def get_last_run(repo_name, workflow_id):
     """Get the last run for a specific workflow."""
-    data = _github_get(
-        f"https://api.github.com/repos/{ORG_NAME}/{repo_name}/actions/workflows/{workflow_id}/runs",
-        {"head_branch": "", "event": "schedule", "per_page": 1},
-    )
-    runs = data.get("workflow_runs", []) if isinstance(data, dict) else data
-    if runs and isinstance(runs, list) and len(runs) > 0:
-        r = runs[0]
-        return jsonify({
-            "id": r["id"],
-            "status": r["status"],
-            "conclusion": r.get("conclusion"),
-            "created_at": r["created_at"],
-            "display_time": _format_time(r["created_at"]),
-            "relative_time": _relative_time(r["created_at"]),
-            "event": r.get("event"),
-            "display_url": r.get("html_url", ""),
-        })
-    return jsonify(None)
-
-@app.route("/api/repos/<repo_name>/workflows/batch-last-run", methods=["POST"])
-def get_batch_last_run(repo_name):
-    """Get last run for multiple workflows in parallel."""
-    body = request.get_json()
-    if body is None:
-        return jsonify({"error": "Invalid or missing JSON body"}), 400
-    workflow_ids = body.get("workflow_ids", [])
-    if not workflow_ids:
-        return jsonify({})
-    # Validate each workflow ID before use
-    for wid in workflow_ids:
-        if not _GITHUB_ID_RE.match(str(wid)):
-            return jsonify({"error": f"Invalid workflow_id: {wid!r}"}), 400
-
-    def fetch_one(wid):
+    org = _get_org_name()
+    try:
         data = _github_get(
-            f"https://api.github.com/repos/{ORG_NAME}/{repo_name}/actions/workflows/{wid}/runs",
+            f"https://api.github.com/repos/{org}/{repo_name}/actions/workflows/{workflow_id}/runs",
             {"head_branch": "", "event": "schedule", "per_page": 1},
         )
         runs = data.get("workflow_runs", []) if isinstance(data, dict) else data
         if runs and isinstance(runs, list) and len(runs) > 0:
             r = runs[0]
-            return str(wid), {
+            return jsonify({
                 "id": r["id"],
                 "status": r["status"],
                 "conclusion": r.get("conclusion"),
@@ -371,7 +334,46 @@ def get_batch_last_run(repo_name):
                 "relative_time": _relative_time(r["created_at"]),
                 "event": r.get("event"),
                 "display_url": r.get("html_url", ""),
-            }
+            })
+    except Exception:
+        pass
+    return jsonify(None)
+
+@app.route("/api/repos/<repo_name>/workflows/batch-last-run", methods=["POST"])
+def get_batch_last_run(repo_name):
+    """Get last run for multiple workflows in parallel."""
+    org = _get_org_name()
+    body = request.get_json()
+    if body is None:
+        return jsonify({"error": "Invalid or missing JSON body"}), 400
+    workflow_ids = body.get("workflow_ids", [])
+    if not workflow_ids:
+        return jsonify({})
+    for wid in workflow_ids:
+        if not _GITHUB_ID_RE.match(str(wid)):
+            return jsonify({"error": f"Invalid workflow_id: {wid!r}"}), 400
+
+    def fetch_one(wid):
+        try:
+            data = _github_get(
+                f"https://api.github.com/repos/{org}/{repo_name}/actions/workflows/{wid}/runs",
+                {"head_branch": "", "event": "schedule", "per_page": 1},
+            )
+            runs = data.get("workflow_runs", []) if isinstance(data, dict) else data
+            if runs and isinstance(runs, list) and len(runs) > 0:
+                r = runs[0]
+                return str(wid), {
+                    "id": r["id"],
+                    "status": r["status"],
+                    "conclusion": r.get("conclusion"),
+                    "created_at": r["created_at"],
+                    "display_time": _format_time(r["created_at"]),
+                    "relative_time": _relative_time(r["created_at"]),
+                    "event": r.get("event"),
+                    "display_url": r.get("html_url", ""),
+                }
+        except Exception:
+            pass
         return str(wid), None
 
     with ThreadPoolExecutor(max_workers=10) as executor:
@@ -382,22 +384,20 @@ def get_batch_last_run(repo_name):
 @app.route("/api/repos/<repo_name>/workflows/<workflow_id>/trigger", methods=["POST"])
 def trigger_workflow(repo_name, workflow_id):
     """Trigger a workflow_dispatch on a workflow."""
+    org = _get_org_name()
     # Validate inputs
     err = _validate_name(repo_name, "repo")
-    if err:
-        return jsonify({"error": err}), 400
+    if err: return jsonify({"error": err}), 400
     err = _validate_id(workflow_id, "workflow_id")
-    if err:
-        return jsonify({"error": err}), 400
+    if err: return jsonify({"error": err}), 400
     body = request.get_json() or {}
     branch = body.get("branch", "")
-    # Validate branch (alphanumeric, hyphens, underscores, dots, slashes)
     if branch and not re.match(r"^[a-zA-Z0-9_./-]+$", branch):
         return jsonify({"error": "Invalid branch name"}), 400
 
     try:
         result = _github_post(
-            f"https://api.github.com/repos/{ORG_NAME}/{repo_name}/actions/workflows/{workflow_id}/dispatches",
+            f"https://api.github.com/repos/{org}/{repo_name}/actions/workflows/{workflow_id}/dispatches",
             {"ref": branch or "main"},
         )
         return jsonify({"success": True, "message": "Triggered", "run_url": result.get("html_url", "")})
@@ -407,6 +407,7 @@ def trigger_workflow(repo_name, workflow_id):
 @app.route("/api/trigger-selected", methods=["POST"])
 def trigger_selected():
     """Trigger multiple workflows at once."""
+    org = _get_org_name()
     body = request.get_json()
     if body is None:
         return jsonify({"error": "Invalid or missing JSON body"}), 400
@@ -416,8 +417,6 @@ def trigger_selected():
         repo = item.get("repo", "")
         wf_id = str(item.get("workflow_id", ""))
         branch = item.get("branch", "main")
-
-        # Validate inputs
         err = _validate_name(repo, "repo")
         if err:
             results.append({"repo": repo, "name": item.get("name", ""), "success": False, "message": err})
@@ -426,13 +425,9 @@ def trigger_selected():
         if err:
             results.append({"repo": repo, "name": item.get("name", ""), "success": False, "message": err})
             continue
-        if branch and not re.match(r"^[a-zA-Z0-9_./-]+$", branch):
-            results.append({"repo": repo, "name": item.get("name", ""), "success": False, "message": "Invalid branch"})
-            continue
-
         try:
             result = _github_post(
-                f"https://api.github.com/repos/{ORG_NAME}/{repo}/actions/workflows/{wf_id}/dispatches",
+                f"https://api.github.com/repos/{org}/{repo}/actions/workflows/{wf_id}/dispatches",
                 {"ref": branch},
             )
             results.append({"repo": repo, "name": item.get("name", ""), "success": True, "message": "Triggered"})
@@ -447,7 +442,6 @@ def config():
 
     if request.method == "POST":
         data = request.get_json()
-        # Validate PAT explicitly before saving
         if data.get("github_pat"):
             new_pat = data["github_pat"]
             r = requests.get(
@@ -456,33 +450,29 @@ def config():
                 timeout=10,
             )
             if r.status_code != 200:
-                msg = r.json().get("message", r.text[:200]) if r.headers.get("content-type", "").startswith("application/json") else r.text[:200]
-                return jsonify({"error": f"Invalid PAT: {msg}"}), 400
-        # Save config atomically
+                return jsonify({"error": "Invalid PAT"}), 400
+        
         full_config = cfg
-        if data.get("github_pat"):
-            full_config["github_pat"] = data["github_pat"]
-        if data.get("org"):
-            full_config["org"] = data["org"]
-        if data.get("repos"):
-            full_config["repos"] = data["repos"]
+        if data.get("github_pat"): full_config["github_pat"] = data["github_pat"]
+        if data.get("org"): full_config["org"] = data["org"]
+        if data.get("repos"): full_config["repos"] = data["repos"]
+        if data.get("timezone"): full_config["timezone"] = data["timezone"]
         _atomic_write(CONFIG_PATH, full_config)
-        # Invalidate caches
+        
         with _cache_lock:
+            _cache.clear()
             _cache["repos"] = {"data": None, "ts": 0}
             _cache["workflows"] = {}
         _invalidate_pat_cache()
-        # Restart scheduler only if it was actually running
+        
         was_running = _scheduler_state["running"]
         _stop_scheduler()
-        if was_running:
-            _start_scheduler()
+        if was_running: _start_scheduler()
         return jsonify({"message": "Config saved"})
 
-    # Return config without PAT for display
     pat_set = cfg.get("github_pat") or os.environ.get("GITHUB_PAT", "")
     return jsonify({
-        "org": cfg.get("org", ORG_NAME),
+        "org": _get_org_name(),
         "refresh_interval": REFRESH_INTERVAL,
         "timezone": TIMEZONE,
         "pat_configured": bool(pat_set),
@@ -494,16 +484,10 @@ def scheduler_status():
     """Get or set scheduler state."""
     if request.method == "POST":
         data = request.get_json()
-        if data.get("enabled"):
-            _start_scheduler()
-        else:
-            _stop_scheduler()
-        return jsonify({"running": _scheduler_state["running"]})
+        if data.get("enabled"): _start_scheduler()
+        else: _stop_scheduler()
     return jsonify({"running": _scheduler_state["running"]})
 
-# ---------------------------------------------------------------------------
-# Auth enforcement (must run before content-type check — 401 before 415)
-# ---------------------------------------------------------------------------
 @app.before_request
 def enforce_auth():
     """Enforce Basic Auth if credentials are configured."""
@@ -512,9 +496,6 @@ def enforce_auth():
         if not auth or not _check_basic_auth(auth):
             return jsonify({"error": "Authentication required"}), 401
 
-# ---------------------------------------------------------------------------
-# Content-Type enforcement on mutating endpoints
-# ---------------------------------------------------------------------------
 @app.before_request
 def enforce_content_type():
     """Require application/json on all mutating endpoints."""
@@ -527,16 +508,13 @@ def _check_basic_auth(auth_header):
     """Validate Basic Auth header with constant-time comparison."""
     try:
         scheme, credentials = auth_header.split(None, 1)
-        if scheme.lower() != "basic":
-            return False
+        if scheme.lower() != "basic": return False
         decoded = base64.b64decode(credentials).decode("utf-8")
         user, password = decoded.split(":", 1)
-        # Use hmac.compare_digest for constant-time comparison
         user_ok = hmac.compare_digest(user, BASIC_AUTH_USER)
         pass_ok = hmac.compare_digest(password, BASIC_AUTH_PASS)
         return user_ok and pass_ok
-    except Exception:
-        return False
+    except Exception: return False
 
 # ---------------------------------------------------------------------------
 # Scheduler
@@ -544,10 +522,10 @@ def _check_basic_auth(auth_header):
 _scheduler_state = {
     "running": False,
     "thread": None,
-    "last_triggers": {},  # key: "repo:workflow_id" -> timestamp
+    "last_triggers": {},
 }
 _scheduler_lock = threading.Lock()
-_scheduler_config = {"interval": 60}  # check every 60 seconds
+_scheduler_config = {"interval": 60}
 
 def _get_last_trigger(key):
     with _scheduler_lock:
@@ -564,62 +542,44 @@ def _scheduler_loop():
         try:
             config = _load_config()
             repos_config = config.get("repos", {})
-            # Use configured timezone for cron evaluation — validate gracefully
+            org = config.get("org") or ORG_NAME
             try:
                 tz = ZoneInfo(config.get("timezone", "UTC"))
             except Exception:
-                logger.warning(f"Invalid timezone {config.get('timezone', 'UTC')!r}, falling back to UTC")
                 tz = ZoneInfo("UTC")
             now = datetime.now(tz)
 
             triggered_any = False
             for repo_name, repo_cfg in repos_config.items():
-                if not repo_cfg.get("enabled", False):
-                    continue
-
+                if not repo_cfg.get("enabled", False): continue
                 workflows = repo_cfg.get("workflows", {})
                 for wf_id, wf_cfg in workflows.items():
-                    if not wf_cfg.get("enabled_schedule", False):
-                        continue
-
+                    if not wf_cfg.get("enabled_schedule", False): continue
                     cron_expr = wf_cfg.get("cron", wf_cfg.get("schedule", ""))
-                    if not cron_expr or cron_expr == "disabled":
-                        continue
-
+                    if not cron_expr or cron_expr == "disabled": continue
                     key = f"{repo_name}:{wf_id}"
                     last = _get_last_trigger(key)
-
-                    # Check if this cron expression is due right now
                     prev_trigger = croniter(cron_expr, now).get_prev(datetime)
                     is_due = 0 <= (now - prev_trigger).total_seconds() < 60
 
                     if is_due:
-                        if last and (now.timestamp() - last) < 120:
-                            continue  # triggered within last 2 min, skip
-
+                        if last and (now.timestamp() - last) < 120: continue
                         branch = wf_cfg.get("branch", "main")
                         try:
                             _github_post(
-                                f"https://api.github.com/repos/{ORG_NAME}/{repo_name}/actions/workflows/{wf_id}/dispatches",
+                                f"https://api.github.com/repos/{org}/{repo_name}/actions/workflows/{wf_id}/dispatches",
                                 {"ref": branch},
                             )
                             _set_last_trigger(key, now.timestamp())
-
-                            # Update config with last_triggered timestamp
-                            if repo_name not in config.get("repos", {}):
-                                config["repos"][repo_name] = {}
-                            if "workflows" not in config["repos"][repo_name]:
-                                config["repos"][repo_name]["workflows"] = {}
-                            if str(wf_id) not in config["repos"][repo_name]["workflows"]:
-                                config["repos"][repo_name]["workflows"][str(wf_id)] = {}
+                            if repo_name not in config["repos"]: config["repos"][repo_name] = {}
+                            if "workflows" not in config["repos"][repo_name]: config["repos"][repo_name]["workflows"] = {}
+                            if str(wf_id) not in config["repos"][repo_name]["workflows"]: config["repos"][repo_name]["workflows"][str(wf_id)] = {}
                             config["repos"][repo_name]["workflows"][str(wf_id)]["last_triggered"] = now.timestamp()
                             triggered_any = True
-
                             logger.info(f"Scheduled trigger: {repo_name}/{wf_id} at {now.isoformat()}")
                         except RuntimeError as e:
                             logger.error(f"Scheduler failed {repo_name}/{wf_id}: {e}")
 
-            # Single config write at end of tick if any triggers fired
             if triggered_any:
                 config.setdefault("_scheduler", {})["last_triggers"] = dict(_scheduler_state["last_triggers"])
                 _atomic_write(CONFIG_PATH, config)
@@ -627,16 +587,12 @@ def _scheduler_loop():
         except Exception as e:
             logger.error(f"Scheduler loop error: {e}")
 
-        # Sleep in small increments so we can stop quickly
         for _ in range(_scheduler_config["interval"]):
-            if not _scheduler_state["running"]:
-                break
+            if not _scheduler_state["running"]: break
             time.sleep(1)
-
     logger.info("Scheduler stopped")
 
 def _start_scheduler():
-    # Restore last_triggers from disk if available
     cfg = _load_config()
     disk_triggers = cfg.get("_scheduler", {}).get("last_triggers", {})
     if disk_triggers:
