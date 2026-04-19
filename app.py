@@ -232,20 +232,35 @@ def index():
 def status():
     return jsonify({"status": "ok", "org": ORG_NAME, "pat_configured": bool(_get_pat())})
 
+def _get_org_name():
+    """Get Org Name from config or env."""
+    cfg = _load_config()
+    return cfg.get("org") or os.environ.get("ORG_NAME", "Wii-Chef-Channel")
+
 @app.route("/api/repos")
 def get_repos():
-    """List all org repos and their enabled status from config."""
+    """List all org/user repos and their enabled status from config."""
+    org = _get_org_name()
     repos_config = _load_config().get("repos", {})
-    cache_key = "repos"
+    cache_key = f"repos:{org}"
 
     with _cache_lock:
-        if _cache[cache_key]["data"] and (time.time() - _cache[cache_key]["ts"]) < CACHE_TTL_REPOS:
+        if _cache.get(cache_key) and (time.time() - _cache[cache_key]["ts"]) < CACHE_TTL_REPOS:
             return jsonify(_cache[cache_key]["data"])
 
-    repos = _github_get(f"https://api.github.com/orgs/{ORG_NAME}/repos", {"type": "all", "sort": "updated"})
-    # Filter to only repos that have workflows
+    # Try Org endpoint first, fallback to User endpoint
+    try:
+        repos = _github_get(f"https://api.github.com/orgs/{org}/repos", {"type": "all", "sort": "updated"})
+    except RuntimeError:
+        logger.info(f"Org {org!r} not found, trying user endpoint")
+        repos = _github_get(f"https://api.github.com/users/{org}/repos", {"type": "all", "sort": "updated"})
+
+    if isinstance(repos, dict) and "message" in repos:
+         return jsonify({"repos": [], "error": repos["message"]}), 500
+    
     result = []
     for r in repos:
+        if not isinstance(r, dict): continue
         key = r["name"]
         enabled = repos_config.get(key, {}).get("enabled", True)
         default_branch = r.get("default_branch", "main")
