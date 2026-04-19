@@ -498,9 +498,72 @@ def scheduler_status():
     """Get or set scheduler state."""
     if request.method == "POST":
         data = request.get_json()
-        if data.get("enabled"): _start_scheduler()
-        else: _stop_scheduler()
-    return jsonify({"running": _scheduler_state["running"]})
+        if not data:
+            return jsonify({"error": "Missing JSON body"}), 400
+        enabled = data.get("enabled", data.get("running"))
+        try:
+            if enabled is True:
+                _start_scheduler()
+            elif enabled is False:
+                _stop_scheduler()
+            else:
+                return jsonify({"error": "Invalid enabled value"}), 400
+        except RuntimeError as e:
+            logger.error(f"Scheduler error: {e}")
+            return jsonify({"error": str(e)}), 500
+        except Exception as e:
+            logger.exception(f"Unexpected scheduler error: {e}")
+            return jsonify({"error": "Scheduler error: " + str(e)}), 500
+    return jsonify({"running": _scheduler_state.get("running", False)})
+
+@app.route("/api/repos/<repo_name>/workflow-config", methods=["POST"])
+def save_workflow_config(repo_name):
+    """Save frequency and branch settings for workflows in a repo."""
+    err = _validate_name(repo_name, "repo")
+    if err:
+        return jsonify({"error": err}), 400
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Missing JSON body"}), 400
+
+    workflows_cfg = data.get("workflows", {})
+    if not workflows_cfg:
+        return jsonify({"error": "No workflows config provided"}), 400
+
+    cfg = _load_config()
+    if repo_name not in cfg.get("repos", {}):
+        return jsonify({"error": f"Repo '{repo_name}' not found in config"}), 404
+
+    if "repos" not in cfg:
+        cfg["repos"] = {}
+    if repo_name not in cfg["repos"]:
+        cfg["repos"][repo_name] = {}
+    if "workflows" not in cfg["repos"][repo_name]:
+        cfg["repos"][repo_name]["workflows"] = {}
+
+    for wf_id, wf_settings in workflows_cfg.items():
+        if not _GITHUB_ID_RE.match(str(wf_id)):
+            continue
+        if "cron" in wf_settings:
+            cfg["repos"][repo_name]["workflows"][str(wf_id)] = cfg["repos"][repo_name]["workflows"].get(str(wf_id), {})
+            cfg["repos"][repo_name]["workflows"][str(wf_id)]["cron"] = wf_settings["cron"]
+        if "branch" in wf_settings:
+            if str(wf_id) not in cfg["repos"][repo_name]["workflows"]:
+                cfg["repos"][repo_name]["workflows"][str(wf_id)] = {}
+            cfg["repos"][repo_name]["workflows"][str(wf_id)]["branch"] = wf_settings["branch"]
+        if "enabled" in wf_settings:
+            if str(wf_id) not in cfg["repos"][repo_name]["workflows"]:
+                cfg["repos"][repo_name]["workflows"][str(wf_id)] = {}
+            cfg["repos"][repo_name]["workflows"][str(wf_id)]["enabled_schedule"] = wf_settings["enabled"]
+
+    _atomic_write(CONFIG_PATH, cfg)
+
+    # Invalidate cache
+    with _cache_lock:
+        _cache["workflows"][repo_name] = {"data": None, "ts": 0}
+
+    return jsonify({"message": "Config saved"})
 
 @app.before_request
 def enforce_auth():
@@ -555,7 +618,7 @@ def _scheduler_loop():
     while _scheduler_state["running"]:
         try:
             config = _load_config()
-            repos_config = config.get("repos", {})
+            repos_config = config.get("repos", {}) or {}
             org = config.get("org") or ORG_NAME
             try:
                 tz = ZoneInfo(config.get("timezone", "UTC"))
@@ -565,9 +628,11 @@ def _scheduler_loop():
 
             triggered_any = False
             for repo_name, repo_cfg in repos_config.items():
+                if not isinstance(repo_cfg, dict): continue
                 if not repo_cfg.get("enabled", False): continue
-                workflows = repo_cfg.get("workflows", {})
+                workflows = repo_cfg.get("workflows", {}) or {}
                 for wf_id, wf_cfg in workflows.items():
+                    if not isinstance(wf_cfg, dict): continue
                     if not wf_cfg.get("enabled_schedule", False): continue
                     cron_expr = wf_cfg.get("cron", wf_cfg.get("schedule", ""))
                     if not cron_expr or cron_expr == "disabled": continue
@@ -607,8 +672,16 @@ def _scheduler_loop():
     logger.info("Scheduler stopped")
 
 def _start_scheduler():
-    cfg = _load_config()
-    disk_triggers = cfg.get("_scheduler", {}).get("last_triggers", {})
+    try:
+        cfg = _load_config()
+    except Exception as e:
+        logger.error(f"Failed to load config for scheduler start: {e}")
+        raise RuntimeError(f"Config error: {e}")
+    disk_triggers = {}
+    try:
+        disk_triggers = cfg.get("_scheduler", {}).get("last_triggers", {}) or {}
+    except Exception:
+        pass
     if disk_triggers:
         with _scheduler_lock:
             _scheduler_state["last_triggers"].update(disk_triggers)
