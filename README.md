@@ -15,6 +15,7 @@ A web UI to manage GitHub Actions workflows across your organization. Trigger wo
 | **Auto-refresh** | Configurable (default 30s) |
 | **Branch selection** | Dropdown per workflow (main, master, develop) |
 | **Last triggered** | Shows when each workflow was last triggered (manually or by scheduler) |
+| **State persistence** | Sidebar selection and expanded repos persist across page refreshes (localStorage) |
 
 ## Architecture
 
@@ -30,6 +31,15 @@ Browser ──http──> Flask app ──GitHub API──> GitHub
 2. **Web UI** (`index.html`) — single-page app, no framework dependencies
 3. **Config** (`data/config.json`) — stored in the `am-config` Docker volume
 4. **Scheduler thread** — runs in-process, checks every 60s for due workflows
+
+### PAT Resolution
+
+The app resolves the GitHub PAT in this order:
+
+1. **Environment variable** `GITHUB_PAT` (highest priority)
+2. **Config file** `data/config.json` → `github_pat` field (set via ⚙ Config UI)
+
+This allows you to store your PAT in the UI as a fallback when the env var is not set.
 
 ### How the scheduler works
 
@@ -202,8 +212,10 @@ docker run -d -p 5000:5000 \
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/` | Web UI |
+| GET | `/api/status` | Health check |
 | GET | `/api/repos` | List all repos in the org |
 | GET | `/api/repos/<name>/workflows` | Get workflows for a repo |
+| GET | `/api/repos/<name>/workflows/<id>/last-run` | Get last run for a workflow |
 | POST | `/api/repos/<name>/workflows/<id>/trigger` | Trigger a single workflow |
 | POST | `/api/repos/trigger-selected` | Trigger all selected workflows |
 | GET | `/api/config` | Get current config (PAT hidden) |
@@ -217,6 +229,7 @@ docker run -d -p 5000:5000 \
 - **Bound to `0.0.0.0:5000`** — use your reverse proxy for HTTPS
 - Add `BASIC_AUTH_USER/PASS` for basic authentication
 - The PAT is never exposed in API responses or the UI
+- If `GITHUB_PAT` env var is not set, the app falls back to the PAT stored in `data/config.json`
 
 ## Updating
 
@@ -235,3 +248,4 @@ In Portainer:
 | Workflow triggers but nothing happens | Check the workflow file exists in the target branch |
 | Config not persisting | Ensure `am-config` volume is mounted correctly |
 | Timezone wrong | Set `TIMEZONE` env var or in ⚙ Config |
+| Sidebar selection lost on refresh | State persists via localStorage — clear browser cache if needed |
