@@ -420,7 +420,7 @@ def config():
 
     if request.method == "POST":
         data = request.get_json()
-        # Validate PAT explicitly before saving (fix #3: check new PAT, not old one)
+        # Validate PAT explicitly before saving (check new PAT, not old one)
         if data.get("github_pat"):
             new_pat = data["github_pat"]
             r = requests.get(
@@ -428,8 +428,9 @@ def config():
                 headers={"Authorization": f"token {new_pat}", "Accept": "application/vnd.github+json"},
                 timeout=10,
             )
-            if r.status_code in (401, 403) or r.status_code != 200:
-                return jsonify({"error": "Invalid PAT"}), 400
+            if r.status_code != 200:
+                msg = r.json().get("message", r.text[:200]) if r.headers.get("content-type", "").startswith("application/json") else r.text[:200]
+                return jsonify({"error": f"Invalid PAT: {msg}"}), 400
         # Save config atomically
         full_config = cfg
         if data.get("github_pat"):
