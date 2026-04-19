@@ -116,9 +116,11 @@ The dropdown maps user-friendly labels to cron expressions:
 
 1. **Stacks** → **Add stack**
 2. **Name**: `actions-manager`
-3. **Web editor** tab
-4. Paste the contents of `docker-compose.yml`
-5. Add these environment variables:
+3. Switch to the **Repository** tab (not Web editor)
+4. **Repository URL**: `https://github.com/Wii-Chef-Channel/actions-manager.git`
+5. **Branch**: `master`
+6. Portainer will clone the repo and auto-load `docker-compose.yml`
+7. Go to the **Environment variables** tab and add:
 
 | Variable | Value | Required |
 |----------|-------|----------|
@@ -129,7 +131,7 @@ The dropdown maps user-friendly labels to cron expressions:
 | `BASIC_AUTH_USER` | (leave empty) | No |
 | `BASIC_AUTH_PASS` | (leave empty) | No |
 
-6. **Deploy the stack**
+8. **Deploy the stack**
 
 ### 3. Open the UI
 
@@ -152,6 +154,15 @@ Click **⚙ Config** to:
 2. For each workflow, use the **Frequency** dropdown to pick a schedule
 3. Toggle the **schedule toggle** (circle) to enable/disable scheduling
 4. Click **Save** in the ⚙ Config panel
+
+### How this works
+
+Portainer's Repository tab:
+1. Clones the git repo onto BanaNAS at `/var/lib/docker/volumes/portainer_portainer-data/_data/compose/<hash>/actions-manager`
+2. Builds the Docker image from `Dockerfile`
+3. Runs the container with your env vars
+
+No SSH needed — Portainer handles everything from the web UI.
 
 ## Local Development
 
@@ -210,9 +221,10 @@ docker run -d -p 5000:5000 \
 ## Updating
 
 In Portainer:
-1. Go to your stack → **Duplicate/Recreate**
-2. Portainer will pull latest Dockerfile and rebuild
-3. Config is preserved in the `am-config` volume
+1. Go to your stack → **Stack settings** (or the ⚙ gear icon)
+2. Click **Recalculate configuration** — Portainer pulls latest commits
+3. Click **Recreate** — Portainer rebuilds and restarts
+4. Config is preserved in the `am-config` volume
 
 ## Troubleshooting
 

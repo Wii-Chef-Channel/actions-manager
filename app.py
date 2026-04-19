@@ -42,8 +42,16 @@ CACHE_TTL_WORKFLOWS = 60 # 1 min
 # ---------------------------------------------------------------------------
 # GitHub API helpers
 # ---------------------------------------------------------------------------
+def _get_pat():
+    """Get PAT from env var or config file."""
+    pat = os.environ.get("GITHUB_PAT", "")
+    if pat:
+        return pat
+    cfg = _load_config()
+    return cfg.get("github_pat", "")
+
 def _headers():
-    return {"Authorization": f"token {GITHUB_PAT}", "Accept": "application/vnd.github+json"}
+    return {"Authorization": f"token {_get_pat()}", "Accept": "application/vnd.github+json"}
 
 def _github_get(url, params=None):
     """GET with pagination and rate-limit awareness."""
@@ -258,7 +266,7 @@ def trigger_selected():
 @app.route("/api/config", methods=["GET", "POST"])
 def config():
     """Get or set config."""
-    config_path = os.path.join(os.path.dirname(__file__), "secrets.json")
+    cfg = _load_config()
 
     if request.method == "POST":
         data = request.get_json()
@@ -268,14 +276,14 @@ def config():
             if r.status_code == 401:
                 return jsonify({"error": "Invalid PAT"}), 400
         # Save config
-        full_config = _load_config()
+        full_config = cfg
         if data.get("github_pat"):
             full_config["github_pat"] = data["github_pat"]
         if data.get("org"):
             full_config["org"] = data["org"]
         if data.get("repos"):
             full_config["repos"] = data["repos"]
-        with open(config_path, "w") as f:
+        with open(CONFIG_PATH, "w") as f:
             json.dump(full_config, f, indent=2)
         # Invalidate cache
         _cache["repos"] = {"data": None, "ts": 0}
@@ -286,14 +294,13 @@ def config():
         return jsonify({"message": "Config saved"})
 
     # Return config without PAT for display
-    config = _load_config()
-    pat_set = config.get("github_pat") or os.environ.get("GITHUB_PAT", "")
+    pat_set = cfg.get("github_pat") or os.environ.get("GITHUB_PAT", "")
     return jsonify({
-        "org": config.get("org", ORG_NAME),
+        "org": cfg.get("org", ORG_NAME),
         "refresh_interval": REFRESH_INTERVAL,
         "timezone": TIMEZONE,
         "pat_configured": bool(pat_set),
-        "repos": config.get("repos", {}),
+        "repos": cfg.get("repos", {}),
     })
 
 @app.route("/api/scheduler/status", methods=["GET", "POST"])
@@ -358,7 +365,11 @@ def _scheduler_loop():
                     last = _get_last_trigger(key)
 
                     # Check if this cron expression is due right now
-                    if croniter(cron_expr, now).get_next(datetime) == now:
+                    next_trigger = croniter(cron_expr, now).get_next(datetime)
+                    prev_trigger = croniter(cron_expr, now).get_prev(datetime)
+                    is_due = prev_trigger.replace(second=0, microsecond=0) <= now <= next_trigger.replace(second=0, microsecond=0)
+
+                    if is_due:
                         if last and (now.timestamp() - last) < 120:
                             continue  # triggered within last 2 min, skip
 

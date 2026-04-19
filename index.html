@@ -579,6 +579,24 @@ let state = {
   timer: null,
 };
 
+// Restore persisted state from localStorage
+try {
+  const saved = JSON.parse(localStorage.getItem('am_state') || '{}');
+  if (saved.activeRepo) state.activeRepo = saved.activeRepo;
+  if (saved.selectedRepos) state.selectedRepos = new Set(saved.selectedRepos);
+  if (saved.expandedRepos) state.expandedRepos = new Set(saved.expandedRepos);
+  if (saved.refreshInterval) state.refreshInterval = saved.refreshInterval;
+} catch (e) { /* ignore */ }
+
+function saveState() {
+  localStorage.setItem('am_state', JSON.stringify({
+    activeRepo: state.activeRepo,
+    selectedRepos: [...state.selectedRepos],
+    expandedRepos: [...state.expandedRepos],
+    refreshInterval: state.refreshInterval,
+  }));
+}
+
 // ---------------------------------------------------------------------------
 // API helpers
 // ---------------------------------------------------------------------------
@@ -587,9 +605,17 @@ async function api(path, opts = {}) {
     headers: { 'Content-Type': 'application/json' },
     ...opts,
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || data.message || `HTTP ${res.status}`);
-  return data;
+  const text = await res.text();
+  try {
+    const data = JSON.parse(text);
+    if (!res.ok) throw new Error(data.error || data.message || `HTTP ${res.status}`);
+    return data;
+  } catch (e) {
+    if (e instanceof SyntaxError) {
+      throw new Error(`Server returned HTML instead of JSON. Check container logs.`);
+    }
+    throw e;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -629,7 +655,7 @@ function statusBadge(conclusion) {
 async function loadRepos() {
   try {
     const data = await api('/api/repos');
-    state.repos = data.repos;
+    state.repos = data.repos || [];
     renderRepos();
     document.getElementById('trigger-all-btn').disabled = false;
   } catch (e) {
@@ -691,6 +717,7 @@ function toggleRepo(name) {
     state.expandedRepos.add(name);
     loadWorkflows(name);
   }
+  saveState();
   renderRepos();
 }
 
@@ -700,18 +727,21 @@ function toggleRepoSchedule(name) {
   } else {
     state.selectedRepos.add(name);
   }
+  saveState();
   updateSelectedCount();
   renderRepos();
 }
 
 function selectAll() {
   state.repos.forEach(r => state.selectedRepos.add(r.name));
+  saveState();
   updateSelectedCount();
   renderRepos();
 }
 
 function deselectAll() {
   state.selectedRepos.clear();
+  saveState();
   updateSelectedCount();
   renderRepos();
 }
