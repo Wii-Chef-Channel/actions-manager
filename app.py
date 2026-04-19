@@ -99,13 +99,27 @@ def _atomic_write(path, data):
 # ---------------------------------------------------------------------------
 # GitHub PAT helper
 # ---------------------------------------------------------------------------
+# PAT cache: avoid disk reads on every API request
+_pat_cache = {"value": None, "ts": 0}
+_PAT_TTL = 30  # seconds
+
 def _get_pat():
-    """Get PAT from env var or config file (dynamic read)."""
+    """Get PAT from env var or config file with short TTL cache."""
     pat = os.environ.get("GITHUB_PAT", "")
     if pat:
         return pat
+    now = time.time()
+    if _pat_cache["value"] and (now - _pat_cache["ts"]) < _PAT_TTL:
+        return _pat_cache["value"]
     cfg = _load_config()
-    return cfg.get("github_pat", "")
+    _pat_cache["value"] = cfg.get("github_pat", "")
+    _pat_cache["ts"] = now
+    return _pat_cache["value"]
+
+def _invalidate_pat_cache():
+    """Invalidate PAT cache after config change."""
+    _pat_cache["value"] = None
+    _pat_cache["ts"] = 0
 
 def _headers():
     return {"Authorization": f"token {_get_pat()}", "Accept": "application/vnd.github+json"}
@@ -115,6 +129,7 @@ def _headers():
 # ---------------------------------------------------------------------------
 def _github_get(url, params=None):
     """GET with pagination and rate-limit awareness."""
+    params = params or {}
     results = []
     page = 1
     while True:
@@ -299,10 +314,16 @@ def get_last_run(repo_name, workflow_id):
 @app.route("/api/repos/<repo_name>/workflows/batch-last-run", methods=["POST"])
 def get_batch_last_run(repo_name):
     """Get last run for multiple workflows in parallel."""
-    body = request.get_json() or {}
+    body = request.get_json()
+    if body is None:
+        return jsonify({"error": "Invalid or missing JSON body"}), 400
     workflow_ids = body.get("workflow_ids", [])
     if not workflow_ids:
         return jsonify({})
+    # Validate each workflow ID before use
+    for wid in workflow_ids:
+        if not _GITHUB_ID_RE.match(str(wid)):
+            return jsonify({"error": f"Invalid workflow_id: {wid!r}"}), 400
 
     def fetch_one(wid):
         runs = _github_get(
@@ -356,7 +377,10 @@ def trigger_workflow(repo_name, workflow_id):
 @app.route("/api/trigger-selected", methods=["POST"])
 def trigger_selected():
     """Trigger multiple workflows at once."""
-    items = request.get_json().get("items", [])
+    body = request.get_json()
+    if body is None:
+        return jsonify({"error": "Invalid or missing JSON body"}), 400
+    items = body.get("items", [])
     results = []
     for item in items:
         repo = item.get("repo", "")
@@ -412,13 +436,16 @@ def config():
         if data.get("repos"):
             full_config["repos"] = data["repos"]
         _atomic_write(CONFIG_PATH, full_config)
-        # Invalidate cache
+        # Invalidate caches
         with _cache_lock:
             _cache["repos"] = {"data": None, "ts": 0}
             _cache["workflows"] = {}
-        # Restart scheduler with new config
+        _invalidate_pat_cache()
+        # Restart scheduler only if it was actually running
+        was_running = _scheduler_state["running"]
         _stop_scheduler()
-        _start_scheduler()
+        if was_running:
+            _start_scheduler()
         return jsonify({"message": "Config saved"})
 
     # Return config without PAT for display
@@ -444,18 +471,7 @@ def scheduler_status():
     return jsonify({"running": _scheduler_state["running"]})
 
 # ---------------------------------------------------------------------------
-# CSRF / Content-Type enforcement on mutating endpoints
-# ---------------------------------------------------------------------------
-@app.before_request
-def enforce_content_type():
-    """Require application/json on all mutating endpoints."""
-    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
-        ct = request.content_type or ""
-        if "application/json" not in ct:
-            return jsonify({"error": "Content-Type must be application/json"}), 415
-
-# ---------------------------------------------------------------------------
-# Basic Auth enforcement
+# Auth enforcement (must run before content-type check — 401 before 415)
 # ---------------------------------------------------------------------------
 @app.before_request
 def enforce_auth():
@@ -464,6 +480,20 @@ def enforce_auth():
         auth = request.headers.get("Authorization")
         if not auth or not _check_basic_auth(auth):
             return jsonify({"error": "Authentication required"}), 401
+
+# ---------------------------------------------------------------------------
+# Content-Type enforcement on mutating endpoints
+# Requires application/json on POST/PUT/PATCH/DELETE to prevent CSRF via
+# form submissions. Only applies to /api/* routes; GET routes (index,
+# health check) are unaffected.
+# ---------------------------------------------------------------------------
+@app.before_request
+def enforce_content_type():
+    """Require application/json on all mutating endpoints."""
+    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        ct = request.content_type or ""
+        if "application/json" not in ct:
+            return jsonify({"error": "Content-Type must be application/json"}), 415
 
 def _check_basic_auth(auth_header):
     """Validate Basic Auth header with constant-time comparison."""
@@ -506,10 +536,15 @@ def _scheduler_loop():
         try:
             config = _load_config()
             repos_config = config.get("repos", {})
-            # Use configured timezone for cron evaluation
-            tz = ZoneInfo(config.get("timezone", "UTC"))
+            # Use configured timezone for cron evaluation — validate gracefully
+            try:
+                tz = ZoneInfo(config.get("timezone", "UTC"))
+            except Exception:
+                logger.warning(f"Invalid timezone {config.get('timezone', 'UTC')!r}, falling back to UTC")
+                tz = ZoneInfo("UTC")
             now = datetime.now(tz)
 
+            triggered_any = False
             for repo_name, repo_cfg in repos_config.items():
                 if not repo_cfg.get("enabled", False):
                     continue
@@ -543,8 +578,7 @@ def _scheduler_loop():
                             )
                             _set_last_trigger(key, now.timestamp())
 
-                            # Update config with last_triggered timestamp
-                            config = _load_config()
+                            # Update config with last_triggered timestamp (in-memory, no re-read)
                             if repo_name not in config.get("repos", {}):
                                 config["repos"][repo_name] = {}
                             if "workflows" not in config["repos"][repo_name]:
@@ -552,13 +586,17 @@ def _scheduler_loop():
                             if str(wf_id) not in config["repos"][repo_name]["workflows"]:
                                 config["repos"][repo_name]["workflows"][str(wf_id)] = {}
                             config["repos"][repo_name]["workflows"][str(wf_id)]["last_triggered"] = now.timestamp()
-                            # Persist last_triggers to disk
-                            config.setdefault("_scheduler", {})["last_triggers"] = dict(_scheduler_state["last_triggers"])
-                            _atomic_write(CONFIG_PATH, config)
+                            triggered_any = True
 
                             logger.info(f"Scheduled trigger: {repo_name}/{wf_id} at {now.isoformat()}")
                         except RuntimeError as e:
                             logger.error(f"Scheduler failed {repo_name}/{wf_id}: {e}")
+
+            # Single config write at end of tick if any triggers fired
+            if triggered_any:
+                config.setdefault("_scheduler", {})["last_triggers"] = dict(_scheduler_state["last_triggers"])
+                _atomic_write(CONFIG_PATH, config)
+
         except Exception as e:
             logger.error(f"Scheduler loop error: {e}")
 
