@@ -766,18 +766,20 @@ async function loadWorkflows(repoName) {
     state.workflows[repoName] = data.workflows;
     renderWorkflows(repoName);
 
-    // Load last run for each workflow
-    data.workflows.forEach(wf => {
-      api(`/api/repos/${repoName}/workflows/${wf.id}/last-run`)
-        .then(run => {
-          if (run && state.workflows[repoName]) {
-            const idx = state.workflows[repoName].find(w => w.id === wf.id);
-            if (idx) idx.last_run = run;
-            if (state.activeRepo === repoName) renderWorkflows(repoName);
-          }
-        })
-        .catch(() => {});
-    });
+    // Load last run for all workflows in one batch call
+    const wfIds = data.workflows.map(wf => wf.id);
+    if (wfIds.length > 0) {
+      const runs = await api(`/api/repos/${repoName}/workflows/batch-last-run`, {
+        method: "POST",
+        body: JSON.stringify({ workflow_ids: wfIds })
+      });
+      if (runs && state.workflows[repoName]) {
+        state.workflows[repoName].forEach(wf => {
+          if (runs[wf.id]) wf.last_run = runs[wf.id];
+        });
+        if (state.activeRepo === repoName) renderWorkflows(repoName);
+      }
+    }
   } catch (e) {
     body.innerHTML = `<div class="empty-state"><p style="color:var(--failure)">Error: ${e.message}</p></div>`;
   }

@@ -1,3 +1,5 @@
+import base64
+import re
 import os
 import json
 import time
@@ -38,6 +40,31 @@ _cache = {
 }
 CACHE_TTL_REPOS = 300   # 5 min
 CACHE_TTL_WORKFLOWS = 60 # 1 min
+
+# ---------------------------------------------------------------------------
+# Input validation
+# ---------------------------------------------------------------------------
+_GITHUB_NAME_RE = re.compile(r"^[a-zA-Z0-9_](?:[a-zA-Z0-9_-]*[a-zA-Z0-9])?$")
+_GITHUB_ID_RE = re.compile(r"^\d+$")
+
+def _validate_name(name, label="name"):
+    """Validate a GitHub repo/user name."""
+    if not name or not _GITHUB_NAME_RE.match(name):
+        return f"Invalid {label}: {name!r}"
+    return None
+
+def _validate_id(val, label="id"):
+    """Validate a GitHub numeric ID."""
+    if not val or not _GITHUB_ID_RE.match(val):
+        return f"Invalid {label}: {val!r}"
+    return None
+
+def _atomic_write(path, data):
+    """Write JSON atomically (write to temp -> rename) to prevent corruption."""
+    tmp_path = path + ".tmp"
+    with open(tmp_path, "w") as f:
+        json.dump(data, f, indent=2)
+    os.replace(tmp_path, path)
 
 # ---------------------------------------------------------------------------
 # GitHub API helpers
@@ -232,11 +259,49 @@ def get_last_run(repo_name, workflow_id):
         })
     return jsonify(None)
 
+@app.route("/api/repos/<repo_name>/workflows/batch-last-run", methods=["POST"])
+def get_batch_last_run(repo_name):
+    """Get last run for multiple workflows in one call."""
+    body = request.get_json() or {}
+    workflow_ids = body.get("workflow_ids", [])
+    if not workflow_ids:
+        return jsonify({})
+
+    results = {}
+    for wf_id in workflow_ids:
+        runs = _github_get(
+            f"https://api.github.com/repos/{ORG_NAME}/{repo_name}/actions/runs",
+            {"head_branch": "", "event": "schedule", "per_page": 1},
+        )
+        if runs and isinstance(runs, list) and len(runs) > 0:
+            r = runs[0]
+            results[str(wf_id)] = {
+                "id": r["id"],
+                "status": r["status"],
+                "conclusion": r.get("conclusion"),
+                "created_at": r["created_at"],
+                "display_time": _format_time(r["created_at"]),
+                "relative_time": _relative_time(r["created_at"]),
+                "event": r.get("event"),
+                "display_url": r.get("html_url", ""),
+            }
+    return jsonify(results)
+
 @app.route("/api/repos/<repo_name>/workflows/<workflow_id>/trigger", methods=["POST"])
 def trigger_workflow(repo_name, workflow_id):
     """Trigger a workflow_dispatch on a workflow."""
+    # Validate inputs
+    err = _validate_name(repo_name, "repo")
+    if err:
+        return jsonify({"error": err}), 400
+    err = _validate_id(workflow_id, "workflow_id")
+    if err:
+        return jsonify({"error": err}), 400
     body = request.get_json() or {}
     branch = body.get("branch", "")
+    # Validate branch (alphanumeric, hyphens, underscores, dots, slashes)
+    if branch and not re.match(r"^[a-zA-Z0-9_./-]+$", branch):
+        return jsonify({"error": "Invalid branch name"}), 400
 
     try:
         result = _github_post(
@@ -275,7 +340,7 @@ def config():
             r = requests.get("https://api.github.com/user", headers=_headers(), timeout=10)
             if r.status_code == 401:
                 return jsonify({"error": "Invalid PAT"}), 400
-        # Save config
+        # Save config atomically
         full_config = cfg
         if data.get("github_pat"):
             full_config["github_pat"] = data["github_pat"]
@@ -283,8 +348,7 @@ def config():
             full_config["org"] = data["org"]
         if data.get("repos"):
             full_config["repos"] = data["repos"]
-        with open(CONFIG_PATH, "w") as f:
-            json.dump(full_config, f, indent=2)
+        _atomic_write(CONFIG_PATH, full_config)
         # Invalidate cache
         _cache["repos"] = {"data": None, "ts": 0}
         _cache["workflows"] = {}
@@ -316,9 +380,24 @@ def scheduler_status():
     return jsonify({"running": _scheduler_state["running"]})
 
 @app.before_request
-def remove_pat_from_responses():
-    """Never leak PAT in API responses."""
-    pass
+def enforce_auth():
+    """Enforce Basic Auth if credentials are configured."""
+    if BASIC_AUTH_USER and BASIC_AUTH_PASS:
+        auth = request.headers.get("Authorization")
+        if not auth or not _check_basic_auth(auth):
+            return jsonify({"error": "Authentication required"}), 401
+
+def _check_basic_auth(auth_header):
+    """Validate Basic Auth header."""
+    try:
+        scheme, credentials = auth_header.split(None, 1)
+        if scheme.lower() != "basic":
+            return False
+        decoded = base64.b64decode(credentials).decode("utf-8")
+        user, password = decoded.split(":", 1)
+        return user == BASIC_AUTH_USER and password == BASIC_AUTH_PASS
+    except Exception:
+        return False
 
 # ---------------------------------------------------------------------------
 # Scheduler
@@ -390,8 +469,9 @@ def _scheduler_loop():
                             if str(wf_id) not in config["repos"][repo_name]["workflows"]:
                                 config["repos"][repo_name]["workflows"][str(wf_id)] = {}
                             config["repos"][repo_name]["workflows"][str(wf_id)]["last_triggered"] = now.timestamp()
-                            with open(CONFIG_PATH, "w") as f:
-                                json.dump(config, f, indent=2)
+                            # Persist last_triggers to disk
+                            config.setdefault("_scheduler", {})["last_triggers"] = dict(_scheduler_state["last_triggers"])
+                            _atomic_write(CONFIG_PATH, config)
                             
                             logger.info(f"Scheduled trigger: {repo_name}/{wf_id} at {now.isoformat()}")
                         except RuntimeError as e:
@@ -408,6 +488,12 @@ def _scheduler_loop():
     logger.info("Scheduler stopped")
 
 def _start_scheduler():
+    # Restore last_triggers from disk if available
+    cfg = _load_config()
+    disk_triggers = cfg.get("_scheduler", {}).get("last_triggers", {})
+    if disk_triggers:
+        with _scheduler_lock:
+            _scheduler_state["last_triggers"].update(disk_triggers)
     if not _scheduler_state["running"]:
         _scheduler_state["running"] = True
         _scheduler_state["thread"] = threading.Thread(target=_scheduler_loop, daemon=True)
