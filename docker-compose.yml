@@ -1,0 +1,30 @@
+services:
+  actions-manager:
+    build: .
+    container_name: actions-manager
+    ports:
+      - "5000:5000"
+    environment:
+      - GITHUB_PAT=${GITHUB_PAT}
+      - ORG_NAME=${ORG_NAME:-Wii-Chef-Channel}
+      - REFRESH_INTERVAL=${REFRESH_INTERVAL:-30}
+      - TIMEZONE=${TIMEZONE:-UTC}
+      - BASIC_AUTH_USER=${BASIC_AUTH_USER:-}
+      - BASIC_AUTH_PASS=${BASIC_AUTH_PASS:-}
+    volumes:
+      - am-config:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/status')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
+volumes:
+  am-config:
