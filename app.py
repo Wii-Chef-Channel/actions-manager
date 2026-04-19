@@ -181,7 +181,7 @@ def get_workflows(repo_name):
     """List workflows for a repo."""
     cache_key = f"workflows:{repo_name}"
 
-    if _cache[cache_key]["data"] and (time.time() - _cache[cache_key]["ts"]) < CACHE_TTL_WORKFLOWS:
+    if cache_key in _cache and _cache[cache_key]["data"] and (time.time() - _cache[cache_key]["ts"]) < CACHE_TTL_WORKFLOWS:
         return jsonify(_cache[cache_key]["data"])
 
     repos_config = _load_config().get("repos", {})
