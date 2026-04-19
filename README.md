@@ -29,7 +29,7 @@ Browser ──http──> Flask app ──GitHub API──> GitHub
 
 1. **Flask app** (`app.py`) — REST API + web server
 2. **Web UI** (`index.html`) — single-page app, no framework dependencies
-3. **Config** (`data/config.json`) — stored in the `am-config` Docker volume
+3. **Config** (`config/config.json`) — stored in the `am-config` Docker volume
 4. **Scheduler thread** — runs in-process, checks every 60s for due workflows
 
 ### PAT Resolution
@@ -37,7 +37,7 @@ Browser ──http──> Flask app ──GitHub API──> GitHub
 The app resolves the GitHub PAT in this order:
 
 1. **Environment variable** `GITHUB_PAT` (highest priority)
-2. **Config file** `data/config.json` → `github_pat` field (set via ⚙ Config UI)
+2. **Config file** `config/config.json` → `github_pat` field (set via ⚙ Config UI)
 
 This allows you to store your PAT in the UI as a fallback when the env var is not set.
 
@@ -46,7 +46,7 @@ This allows you to store your PAT in the UI as a fallback when the env var is no
 The scheduler runs as a background thread inside the Flask app:
 
 1. **Wakes up** every 60 seconds
-2. **Reads** `data/config.json` from disk
+2. **Reads** `config/config.json` from disk
 3. **Iterates** through all repos → workflows
 4. **Checks** each workflow:
    - Is the repo enabled? (`repos.<repo>.enabled`)
@@ -78,7 +78,7 @@ The dropdown maps user-friendly labels to cron expressions:
 
 ### Config file structure
 
-`data/config.json` (stored in the `am-config` Docker volume):
+`config/config.json` (stored in the `am-config` Docker volume):
 
 ```json
 {
@@ -210,7 +210,7 @@ docker build -t actions-manager .
 docker run -d -p 5000:5000 \
   -e GITHUB_PAT=ghp_your_token_here \
   -e ORG_NAME=Wii-Chef-Channel \
-  -v am-config:/app/data \
+  -v am-config:/app/config \
   actions-manager
 ```
 
@@ -236,7 +236,7 @@ docker run -d -p 5000:5000 \
 - **Bound to `0.0.0.0:5000`** — use your reverse proxy for HTTPS
 - Add `BASIC_AUTH_USER/PASS` for basic authentication
 - The PAT is never exposed in API responses or the UI
-- If `GITHUB_PAT` env var is not set, the app falls back to the PAT stored in `data/config.json`
+- If `GITHUB_PAT` env var is not set, the app falls back to the PAT stored in `config/config.json`
 - **Content-Type enforcement**: All mutating endpoints require `application/json` Content-Type
 - **Constant-time password comparison**: Basic Auth uses `hmac.compare_digest()` to prevent timing attacks
 - **Input validation**: All repo names, workflow IDs, and branch names are validated before use

@@ -31,7 +31,7 @@ logger = logging.getLogger("actions-manager")
 # ---------------------------------------------------------------------------
 # Config path & helpers (moved to top so they're available at module load)
 # ---------------------------------------------------------------------------
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), "data", "config.json")
+CONFIG_PATH = os.environ.get("CONFIG_PATH", os.path.join(os.path.dirname(__file__), "data", "config.json"))
 _config_lock = threading.Lock()
 _cache_lock = threading.Lock()
 
@@ -141,6 +141,9 @@ def _github_get(url, params=None):
         if r.status_code != 200:
             raise RuntimeError(f"GitHub API error {r.status_code}: {r.text[:200]}")
         data = r.json()
+        if isinstance(data, dict):
+            # Error response from GitHub API (e.g., {"message": "Bad credentials"})
+            raise RuntimeError(f"GitHub API error: {data.get('message', r.text[:200])}")
         if isinstance(data, list):
             results.extend(data)
         else:
@@ -425,7 +428,7 @@ def config():
                 headers={"Authorization": f"token {new_pat}", "Accept": "application/vnd.github+json"},
                 timeout=10,
             )
-            if r.status_code == 401:
+            if r.status_code in (401, 403) or r.status_code != 200:
                 return jsonify({"error": "Invalid PAT"}), 400
         # Save config atomically
         full_config = cfg

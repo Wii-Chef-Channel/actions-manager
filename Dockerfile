@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py .
 COPY index.html .
 
-RUN mkdir -p /app/data \
+RUN mkdir -p /app/config \
     && useradd -m -d /app appuser \
     && chown -R appuser:appuser /app
 
@@ -16,6 +16,7 @@ USER appuser
 
 ENV HOST=0.0.0.0
 ENV PORT=5000
+ENV CONFIG_PATH=/app/config/config.json
 
 EXPOSE 5000
 
