@@ -325,7 +325,7 @@ def get_last_run(repo_name, workflow_id):
     try:
         data = _github_get(
             f"https://api.github.com/repos/{org}/{repo_name}/actions/workflows/{workflow_id}/runs",
-            {"head_branch": "", "event": "schedule", "per_page": 1},
+            {"per_page": 1},
         )
         runs = data.get("workflow_runs", []) if isinstance(data, dict) else data
         if runs and isinstance(runs, list) and len(runs) > 0:
@@ -362,7 +362,7 @@ def get_batch_last_run(repo_name):
         try:
             data = _github_get(
                 f"https://api.github.com/repos/{org}/{repo_name}/actions/workflows/{wid}/runs",
-                {"head_branch": "", "event": "schedule", "per_page": 1},
+                {"per_page": 1},
             )
             runs = data.get("workflow_runs", []) if isinstance(data, dict) else data
             if runs and isinstance(runs, list) and len(runs) > 0:
