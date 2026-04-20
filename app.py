@@ -515,6 +515,8 @@ def config():
             if data.get("github_pat"): full_config["github_pat"] = data["github_pat"]
             # org is always determined by ORG_NAME env var — never save it from config
             if data.get("timezone"): full_config["timezone"] = data["timezone"]
+            # Preserve _scheduler section (scheduler loop writes running/last_triggers)
+            saved_scheduler = cfg.get("_scheduler")
             # Merge repos config instead of replacing — prevents wiping repos
             # that weren't included in a partial update
             if data.get("repos"):
@@ -525,6 +527,9 @@ def config():
                         full_config["repos"][rname] = {}
                     if isinstance(rcfg, dict):
                         full_config["repos"][rname].update(rcfg)
+            # Restore _scheduler section if it was present
+            if saved_scheduler:
+                full_config["_scheduler"] = saved_scheduler
             _atomic_write(CONFIG_PATH, full_config)
 
             with _cache_lock:
