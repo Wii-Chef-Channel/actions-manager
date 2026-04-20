@@ -574,10 +574,14 @@ def scheduler_status():
         logger.info(f"SCHEDULER POST: enabled={enabled}, current_in_memory={_scheduler_state.get('running')}")
         try:
             if enabled is True:
-                logger.info("SCHEDULER: calling _start_scheduler()")
+                # User explicitly enabled — force start regardless of disk state
+                _scheduler_state["running"] = True
+                _scheduler_state["thread"] = None  # Clear so _start_scheduler knows to create new thread
+                logger.info("SCHEDULER: calling _start_scheduler() (forced by user)")
                 _start_scheduler()
                 logger.info(f"SCHEDULER: after _start_scheduler, running={_scheduler_state.get('running')}, thread={_scheduler_state.get('thread')}")
             elif enabled is False:
+                # User explicitly disabled — stop and persist
                 logger.info("SCHEDULER: calling _stop_scheduler()")
                 _stop_scheduler()
                 logger.info(f"SCHEDULER: after _stop_scheduler, running={_scheduler_state.get('running')}, thread={_scheduler_state.get('thread')}")
@@ -779,26 +783,24 @@ def _start_scheduler():
 
     # Determine running state:
     # - If a thread already exists, scheduler was already running, keep it running
-    # - If no thread exists (fresh start or after stop), check disk ONLY if the
-    #   in-memory state was already False (meaning a previous _stop_scheduler call
-    #   explicitly disabled it). Otherwise, default to running.
+    # - If no thread exists (fresh start or after stop):
+    #   - If in-memory running is True, user just enabled it — start it
+    #   - If in-memory running is False, check disk for saved state
     if _scheduler_state.get("thread") is not None:
         # Thread exists — scheduler was already running, keep it running
         logger.info("SCHEDULER_START: thread exists, keeping running=True")
         _scheduler_state["running"] = True
     else:
         # No thread — fresh start or was stopped.
-        # If in-memory state was already False, honor that (explicit stop).
-        # Otherwise, default to running (explicit start or fresh install).
-        if _scheduler_state.get("running") is False:
-            # Was explicitly stopped before — check disk
-            saved_running = (cfg.get("_scheduler") or {}).get("running", None)
-            logger.info(f"SCHEDULER_START: was stopped, disk_scheduled_running={saved_running}")
-            _scheduler_state["running"] = saved_running is not False
-        else:
-            # Fresh start or explicit start — default to running
-            logger.info("SCHEDULER_START: defaulting to running=True")
+        if _scheduler_state.get("running") is True:
+            # In-memory is True (user just enabled or fresh start) — start it
+            logger.info("SCHEDULER_START: in-memory=True, starting scheduler")
             _scheduler_state["running"] = True
+        else:
+            # In-memory is False — check disk for saved state
+            saved_running = (cfg.get("_scheduler") or {}).get("running", None)
+            logger.info(f"SCHEDULER_START: in-memory=False, disk_scheduled_running={saved_running}")
+            _scheduler_state["running"] = saved_running is not False
 
     # Persist the determined state to disk
     cfg.setdefault("_scheduler", {})["running"] = _scheduler_state["running"]
