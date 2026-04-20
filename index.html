@@ -594,6 +594,8 @@ try {
   if (saved.selectedRepos) state.selectedRepos = new Set(saved.selectedRepos);
   if (saved.expandedRepos) state.expandedRepos = new Set(saved.expandedRepos);
   if (saved.refreshInterval) state.refreshInterval = saved.refreshInterval;
+  if (saved.workflows && typeof saved.workflows === 'object') state.workflows = saved.workflows;
+  if (saved.branches && typeof saved.branches === 'object') state.branches = saved.branches;
 } catch (e) { /* ignore */ }
 
 function saveState() {
@@ -602,6 +604,8 @@ function saveState() {
     selectedRepos: [...state.selectedRepos],
     expandedRepos: [...state.expandedRepos],
     refreshInterval: state.refreshInterval,
+    workflows: state.workflows,
+    branches: state.branches,
   }));
 }
 
