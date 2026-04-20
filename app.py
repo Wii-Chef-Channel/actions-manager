@@ -763,6 +763,13 @@ def _start_scheduler():
         _scheduler_state["running"] = False
     else:
         _scheduler_state["running"] = True
+        # Persist scheduler state to disk
+        cfg.setdefault("_scheduler", {})["running"] = True
+        cfg.setdefault("_scheduler", {})["last_triggers"] = dict(_scheduler_state["last_triggers"])
+        try:
+            _atomic_write(CONFIG_PATH, cfg)
+        except Exception as e:
+            logger.error(f"Failed to persist scheduler state: {e}")
         _scheduler_state["thread"] = threading.Thread(target=_scheduler_loop, daemon=True)
         _scheduler_state["thread"].start()
 
