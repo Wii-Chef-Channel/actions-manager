@@ -1540,6 +1540,13 @@ async function init() {
     return;
   }
   await loadRepos();
+  // Load scheduler status
+  try {
+    const schedData = await api('/api/scheduler/status');
+    updateSchedulerUI(schedData.running);
+  } catch (e) {
+    console.error('Failed to load scheduler status:', e);
+  }
   startAutoRefresh();
 }
 
