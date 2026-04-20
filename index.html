@@ -1133,9 +1133,21 @@ async function triggerWorkflow(repoName, workflowId) {
       body: JSON.stringify({ branch }),
     });
     toast(`Triggered "${state.workflows[repoName]?.find(w => w.id === workflowId)?.name}"`, 'success');
-    // Refresh workflow data to update last_triggered
+    // Refresh workflow data to update last_triggered and status
     const wfData = await api(`/api/repos/${repoName}/workflows`);
-    state.workflows[repoName] = wfData.workflows;
+    state.workflows[repoName] = wfData.workflows || [];
+    const wfIds = (wfData.workflows || []).map(wf => wf.id);
+    if (wfIds.length > 0) {
+      const runs = await api(`/api/repos/${repoName}/workflows/batch-last-run`, {
+        method: "POST",
+        body: JSON.stringify({ workflow_ids: wfIds }),
+      });
+      if (runs) {
+        state.workflows[repoName].forEach(wf => {
+          if (runs[wf.id]) wf.last_run = runs[wf.id];
+        });
+      }
+    }
     if (state.activeRepo === repoName) renderWorkflows(repoName);
   } catch (e) {
     toast(`Failed: ${e.message}`, 'error');
@@ -1179,10 +1191,22 @@ async function triggerSelected() {
     const success = data.results.filter(r => r.success).length;
     const fail = data.results.filter(r => !r.success).length;
     toast(`Triggered ${success} workflow(s)${fail ? `, ${fail} failed` : ''}`, success > 0 ? 'success' : 'error');
-    // Refresh all workflows
+    // Refresh all workflows (including status)
     for (const repo of new Set(items.map(i => i.repo))) {
       const wfData = await api(`/api/repos/${repo}/workflows`);
-      state.workflows[repo] = wfData.workflows;
+      state.workflows[repo] = wfData.workflows || [];
+      const wfIds = (wfData.workflows || []).map(wf => wf.id);
+      if (wfIds.length > 0) {
+        const runs = await api(`/api/repos/${repo}/workflows/batch-last-run`, {
+          method: "POST",
+          body: JSON.stringify({ workflow_ids: wfIds }),
+        });
+        if (runs) {
+          state.workflows[repo].forEach(wf => {
+            if (runs[wf.id]) wf.last_run = runs[wf.id];
+          });
+        }
+      }
     }
     if (state.activeRepo) renderWorkflows(state.activeRepo);
   } catch (e) {
@@ -1484,6 +1508,19 @@ function startAutoRefresh() {
       try {
         const data = await api(`/api/repos/${state.activeRepo}/workflows`);
         state.workflows[state.activeRepo] = data.workflows || [];
+        // Re-fetch last_run so status doesn't disappear
+        const wfIds = (data.workflows || []).map(wf => wf.id);
+        if (wfIds.length > 0) {
+          const runs = await api(`/api/repos/${state.activeRepo}/workflows/batch-last-run`, {
+            method: "POST",
+            body: JSON.stringify({ workflow_ids: wfIds }),
+          });
+          if (runs) {
+            state.workflows[state.activeRepo].forEach(wf => {
+              if (runs[wf.id]) wf.last_run = runs[wf.id];
+            });
+          }
+        }
         renderWorkflows(state.activeRepo);
       } catch (e) {
         console.error('Auto-refresh failed:', e);
