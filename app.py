@@ -752,11 +752,11 @@ def _start_scheduler():
     if disk_triggers:
         with _scheduler_lock:
             _scheduler_state["last_triggers"].update(disk_triggers)
-    # Restore scheduler running state from disk
-    saved_running = (cfg.get("_scheduler") or {}).get("running", False)
-    if saved_running:
-        _scheduler_state["running"] = True
-    if not _scheduler_state["running"]:
+    # Default to running; only disable if explicitly saved as off
+    saved_running = (cfg.get("_scheduler") or {}).get("running", None)
+    if saved_running is False:
+        _scheduler_state["running"] = False
+    else:
         _scheduler_state["running"] = True
         _scheduler_state["thread"] = threading.Thread(target=_scheduler_loop, daemon=True)
         _scheduler_state["thread"].start()
