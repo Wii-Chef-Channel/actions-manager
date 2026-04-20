@@ -1,15 +1,1 @@
-{
-  "org": "Wii-Chef-Channel",
-  "repos": {
-    "Wii-Chef-Channel/central-vault": {
-      "enabled": true,
-      "workflows": {
-        "1": {
-          "enabled_schedule": true,
-          "cron": "*/10 * * * *",
-          "branch": "main"
-        }
-      }
-    }
-  }
-}
+{"org": "test", "repos": null}

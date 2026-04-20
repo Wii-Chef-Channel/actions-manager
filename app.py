@@ -257,11 +257,17 @@ def get_repos():
         key = r["name"]
         enabled = repos_config.get(key, {}).get("enabled", True)
         default_branch = r.get("default_branch", "main")
+        workflows = (repos_config.get(key) or {}).get("workflows", {}) or {}
+        schedule_enabled = any(
+            isinstance(wf, dict) and wf.get("enabled_schedule", False)
+            for wf in workflows.values()
+        )
         result.append({
             "name": key,
             "full_name": r["full_name"],
             "default_branch": default_branch,
             "enabled": enabled,
+            "schedule_enabled": schedule_enabled,
             "private": r.get("private", True),
             "updated_at": r.get("updated_at"),
         })
@@ -720,6 +726,7 @@ def _scheduler_loop():
             # Always persist last_triggers (even if nothing triggered) so
             # the value survives restarts
             config.setdefault("_scheduler", {})["last_triggers"] = dict(_scheduler_state["last_triggers"])
+            config.setdefault("_scheduler", {})["running"] = _scheduler_state["running"]
             _atomic_write(CONFIG_PATH, config)
 
         except Exception as e:
@@ -744,6 +751,10 @@ def _start_scheduler():
     if disk_triggers:
         with _scheduler_lock:
             _scheduler_state["last_triggers"].update(disk_triggers)
+    # Restore scheduler running state from disk
+    saved_running = (cfg.get("_scheduler") or {}).get("running", False)
+    if saved_running:
+        _scheduler_state["running"] = True
     if not _scheduler_state["running"]:
         _scheduler_state["running"] = True
         _scheduler_state["thread"] = threading.Thread(target=_scheduler_loop, daemon=True)
@@ -751,6 +762,14 @@ def _start_scheduler():
 
 def _stop_scheduler():
     _scheduler_state["running"] = False
+    # Persist scheduler state to disk so it survives restarts
+    try:
+        cfg = _load_config()
+        cfg.setdefault("_scheduler", {})["running"] = False
+        cfg.setdefault("_scheduler", {})["last_triggers"] = dict(_scheduler_state["last_triggers"])
+        _atomic_write(CONFIG_PATH, cfg)
+    except Exception as e:
+        logger.error(f"Failed to persist scheduler state: {e}")
     if _scheduler_state["thread"]:
         _scheduler_state["thread"].join(timeout=10)
         _scheduler_state["thread"] = None
