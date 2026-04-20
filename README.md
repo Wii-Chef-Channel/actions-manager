@@ -13,7 +13,7 @@ A web UI to manage GitHub Actions workflows across your organization. Trigger wo
 | **Trigger single workflow** | ▶ Run button per row |
 | **Trigger selected workflows** | Check boxes → "Trigger Selected" |
 | **Trigger all workflows** | "Trigger All" in header |
-| **Built-in scheduler** | Toggle in ⚙ Config — triggers enabled workflows automatically |
+| **Built-in scheduler** | Toggle ⏱ in header or ⚙ Config — triggers enabled workflows automatically |
 | **Auto-refresh** | Configurable (default 30s) |
 | **Branch selection** | Dropdown per workflow (main, master, develop) |
 | **State persistence** | Sidebar selection and expanded repos persist across page refreshes |
@@ -79,7 +79,19 @@ Click **⚙ Config** to:
 - Set your local timezone (e.g., `America/Los_Angeles`)
 - **Enable the scheduler** (toggle button)
 
-## Scheduler Presets
+## Scheduler
+
+The scheduler runs automatically in the background once enabled. It checks every **60 seconds** whether any enabled workflows are due to trigger based on their cron expression.
+
+### How It Works
+
+1. **Enable the scheduler** — Click the ⏱ indicator in the header or the toggle in ⚙ Config
+2. **Set a cron schedule** per workflow (e.g., `*/30 * * * *` for every 30 minutes)
+3. **No manual triggering needed** — the scheduler dispatches workflows automatically
+4. **120-second cooldown** — after triggering a workflow, it won't trigger the same one again for 2 minutes (prevents double-fires at cron boundaries)
+5. **Branch fallback** — if no branch is specified, defaults to `main`
+
+### Scheduler Presets
 
 | Dropdown label | Cron expression | Meaning |
 |----------------|-----------------|---------|
@@ -88,6 +100,12 @@ Click **⚙ Config** to:
 | Every 1-12 hours | `0 */X * * *` | Triggers at minute 0 every X hours |
 | Daily | `0 0 * * *` | Triggers at midnight in your **configured timezone** |
 | Custom cron | (user input) | Any valid cron expression |
+
+### Important Notes
+
+- The scheduler state is **persisted to disk** and survives app restarts
+- The UI auto-refreshes every 30 seconds to show updated workflow statuses (this does not affect the scheduler)
+- Timezone-aware: cron expressions are evaluated in the timezone set in ⚙ Config (default UTC)
 
 ## Local Development
 
