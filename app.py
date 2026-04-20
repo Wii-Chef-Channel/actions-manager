@@ -545,10 +545,6 @@ def config():
                 _cache["repos"] = {"data": None, "ts": 0}
                 _cache["workflows"] = {}
             _invalidate_pat_cache()
-
-            was_running = _scheduler_state["running"]
-            _stop_scheduler()
-            if was_running: _start_scheduler()
             return jsonify({"message": "Config saved"})
         except Exception as e:
             logger.exception(f"Config save error: {e}")
@@ -683,10 +679,9 @@ def _set_last_trigger(key, ts):
         _scheduler_state["last_triggers"][key] = ts
 
 def _scheduler_load_config():
-    """Reload config from disk each tick to stay in sync with API changes.
-    last_triggered values are already written to disk at the end of each tick,
-    so they are naturally picked up on reload."""
+    """Reload config from disk each tick to stay in sync with API changes."""
     return _load_config()
+
 
 def _scheduler_loop():
     """Background thread: check enabled workflows every 60s and trigger if due."""
@@ -751,16 +746,16 @@ def _scheduler_loop():
             time.sleep(1)
     logger.info("Scheduler stopped")
 
+
 def _start_scheduler():
-    """Start the scheduler loop. Always defaults to running unless
-    explicitly disabled in config. Used after config saves where we
-    just stopped the scheduler to restart it — so we must not re-read
-    the 'false' value we just wrote to disk."""
+    """Start the scheduler loop. Defaults to running unless explicitly off in config."""
     try:
         cfg = _load_config()
     except Exception as e:
         logger.error(f"Failed to load config for scheduler start: {e}")
         raise RuntimeError(f"Config error: {e}")
+
+    # Restore last_triggers from disk
     disk_triggers = {}
     try:
         disk_triggers = cfg.get("_scheduler", {}).get("last_triggers", {}) or {}
@@ -769,33 +764,33 @@ def _start_scheduler():
     if disk_triggers:
         with _scheduler_lock:
             _scheduler_state["last_triggers"].update(disk_triggers)
-    # Only respect saved 'off' state if scheduler was already stopped
-    # (not just temporarily stopped for a config save).
-    # If scheduler was running, always restart it.
+
+    # Determine running state: only check disk if no thread is running
+    # (i.e., this is a fresh start, not a restart after config save)
     if _scheduler_state.get("thread") is not None:
-        # Scheduler was already running — keep it running
+        # Thread exists — scheduler was already running, keep it running
         _scheduler_state["running"] = True
     else:
-        # Fresh start or was stopped — check disk
+        # No thread — fresh start or was stopped. Check disk.
         saved_running = (cfg.get("_scheduler") or {}).get("running", None)
-        if saved_running is False:
-            _scheduler_state["running"] = False
-        else:
-            _scheduler_state["running"] = True
-    # Persist the intended state to disk
+        _scheduler_state["running"] = saved_running is not False
+
+    # Persist the determined state to disk
     cfg.setdefault("_scheduler", {})["running"] = _scheduler_state["running"]
     cfg.setdefault("_scheduler", {})["last_triggers"] = dict(_scheduler_state["last_triggers"])
     try:
         _atomic_write(CONFIG_PATH, cfg)
     except Exception as e:
         logger.error(f"Failed to persist scheduler state: {e}")
+
     if _scheduler_state["running"]:
         _scheduler_state["thread"] = threading.Thread(target=_scheduler_loop, daemon=True)
         _scheduler_state["thread"].start()
 
+
 def _stop_scheduler():
+    """Stop the scheduler and persist state to disk."""
     _scheduler_state["running"] = False
-    # Persist scheduler state to disk so it survives restarts
     try:
         cfg = _load_config()
         cfg.setdefault("_scheduler", {})["running"] = False
