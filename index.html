@@ -671,7 +671,7 @@ body {
   </div>
   <div class="header-right">
     <span id="org-label" style="font-size:12px;color:var(--text-muted)"></span>
-    <span id="scheduler-status" style="font-size:12px;color:var(--text-muted)">⏱ Off</span>
+    <span id="scheduler-status" style="font-size:12px;color:var(--text-muted);cursor:pointer;padding:4px 8px;border-radius:4px;user-select:none;transition:background 0.1s" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''" onclick="toggleScheduler()" title="Click to toggle scheduler">⏱ Off</span>
     <button class="btn btn-sm" onclick="loadRepos()">↻ Refresh</button>
     <button class="btn btn-sm" onclick="openConfig()">⚙ Config</button>
   </div>
@@ -1396,25 +1396,39 @@ function updateSchedulerUI(running) {
   const btn = document.getElementById('cfg-scheduler-btn');
   const status = document.getElementById('scheduler-status');
   if (running) {
-    btn.textContent = '⏱ On';
-    btn.style.borderColor = 'var(--success)';
-    status.textContent = '⏱ On';
-    status.style.color = 'var(--success)';
+    if (btn) { btn.textContent = '⏱ On'; btn.style.borderColor = 'var(--success)'; }
+    if (status) { status.textContent = '⏱ On'; status.style.color = 'var(--success)'; }
   } else {
-    btn.textContent = '⏱ Off';
-    btn.style.borderColor = 'var(--border)';
-    status.textContent = '⏱ Off';
-    status.style.color = 'var(--text-muted)';
+    if (btn) { btn.textContent = '⏱ Off'; btn.style.borderColor = 'var(--border)'; }
+    if (status) { status.textContent = '⏱ Off'; status.style.color = 'var(--text-muted)'; }
   }
 }
 
 async function toggleScheduler() {
-  const btn = document.getElementById('cfg-scheduler-btn');
-  const current = btn.textContent.includes('On');
+  // Determine current state from whichever UI element is visible
+  let current = false;
+  const modalBtn = document.getElementById('cfg-scheduler-btn');
+  if (modalBtn && modalBtn.offsetParent !== null) {
+    // Config modal is open — use modal button
+    current = modalBtn.textContent.includes('On');
+  } else {
+    // Main page — use header status
+    const status = document.getElementById('scheduler-status');
+    current = status.textContent.includes('On');
+  }
+
   const newState = !current;
 
-  btn.innerHTML = '<span class="spinner"></span>';
-  btn.disabled = true;
+  // Show loading on the visible element
+  let targetEl;
+  if (modalBtn && modalBtn.offsetParent !== null) {
+    targetEl = modalBtn;
+    targetEl.innerHTML = '<span class="spinner"></span>';
+    targetEl.disabled = true;
+  } else {
+    targetEl = document.getElementById('scheduler-status');
+    targetEl.style.opacity = '0.5';
+  }
 
   try {
     const resp = await api('/api/scheduler/status', {
@@ -1429,8 +1443,13 @@ async function toggleScheduler() {
     updateSchedulerUI(current);
   }
 
-  btn.disabled = false;
-  btn.textContent = newState ? '⏱ On' : '⏱ Off';
+  // Restore target element
+  if (modalBtn && modalBtn.offsetParent !== null) {
+    targetEl.disabled = false;
+    targetEl.textContent = newState ? '⏱ On' : '⏱ Off';
+  } else {
+    targetEl.style.opacity = '1';
+  }
 }
 
 // Config modal workflow helpers
