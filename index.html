@@ -146,13 +146,6 @@ body {
   transition: transform 0.15s;
 }
 .repo-toggle.expanded { transform: rotate(90deg); }
-.repo-checkbox {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--success);
-  cursor: pointer;
-  flex-shrink: 0;
-}
 .repo-name {
   flex: 1;
   font-size: 13px;
@@ -494,7 +487,6 @@ body {
     <span id="scheduler-status" style="font-size:12px;color:var(--text-muted)">⏱ Off</span>
     <button class="btn btn-sm" onclick="loadRepos()">↻ Refresh</button>
     <button class="btn btn-sm" onclick="openConfig()">⚙ Config</button>
-    <button class="btn btn-sm btn-primary" id="trigger-all-btn" onclick="triggerAll()" disabled>▶ Trigger All</button>
   </div>
 </div>
 
@@ -504,10 +496,6 @@ body {
   <div class="sidebar">
     <div class="sidebar-header">
       <h2>Repos</h2>
-      <div style="display:flex;gap:4px;">
-        <button class="btn btn-sm" onclick="selectAll()">All</button>
-        <button class="btn btn-sm" onclick="deselectAll()">None</button>
-      </div>
     </div>
     <div class="sidebar-body" id="repo-list">
       <div class="empty-state">
@@ -520,10 +508,6 @@ body {
   <div class="content">
     <div class="content-header" id="content-header" style="display:none;">
       <h2 id="content-title">Select a repo</h2>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <span id="selected-count" style="font-size:12px;color:var(--text-muted)"></span>
-        <button class="btn btn-sm btn-primary" id="trigger-selected-btn" onclick="triggerSelected()" disabled>▶ Trigger Selected</button>
-      </div>
     </div>
     <div class="content-body" id="content-body">
       <div class="empty-state">
@@ -538,7 +522,7 @@ body {
   <div class="modal">
     <h2>⚙ Configuration</h2>
     <label for="cfg-org">Org Name</label>
-    <input id="cfg-org" type="text" placeholder="Wii-Chef-Channel">
+    <input id="cfg-org" type="text" placeholder="Wii-Chef-Channel" readonly>
 
     <label for="cfg-pat">GitHub PAT</label>
     <input id="cfg-pat" type="password" placeholder="ghp_xxxxxxxxxxxx">
@@ -579,8 +563,6 @@ let state = {
   repos: [],
   workflows: {},
   branches: {},
-  selectedRepos: new Set(),
-  selectedWorkflows: new Set(),
   expandedRepos: new Set(),
   activeRepo: null,
   refreshInterval: 30,
@@ -591,7 +573,6 @@ let state = {
 try {
   const saved = JSON.parse(localStorage.getItem('am_state') || '{}');
   if (saved.activeRepo) state.activeRepo = saved.activeRepo;
-  if (saved.selectedRepos) state.selectedRepos = new Set(saved.selectedRepos);
   if (saved.expandedRepos) state.expandedRepos = new Set(saved.expandedRepos);
   if (saved.refreshInterval) state.refreshInterval = saved.refreshInterval;
   if (saved.workflows && typeof saved.workflows === 'object') state.workflows = saved.workflows;
@@ -601,7 +582,6 @@ try {
 function saveState() {
   localStorage.setItem('am_state', JSON.stringify({
     activeRepo: state.activeRepo,
-    selectedRepos: [...state.selectedRepos],
     expandedRepos: [...state.expandedRepos],
     refreshInterval: state.refreshInterval,
     workflows: state.workflows,
@@ -672,10 +652,8 @@ async function loadRepos() {
     const data = await api('/api/repos');
     state.repos = data.repos || [];
     renderRepos();
-    document.getElementById('trigger-all-btn').disabled = false;
   } catch (e) {
     toast(e.message, 'error');
-    document.getElementById('trigger-all-btn').disabled = true;
   }
 }
 
@@ -688,18 +666,13 @@ function renderRepos() {
   }
   el.innerHTML = repos.map(repo => {
     const workflows = state.workflows[repo.name] || [];
-    const enabled = state.selectedRepos.has(repo.name);
     const expanded = state.expandedRepos.has(repo.name);
     const selected = state.activeRepo === repo.name;
-    const schedEnabled = repo.schedule_enabled;
 
     return `
       <div class="repo-item">
         <div class="repo-header ${selected ? 'selected' : ''}" onclick="toggleRepo('${repo.name}')">
           <span class="repo-toggle ${expanded ? 'expanded' : ''}">▶</span>
-          <input type="checkbox" class="repo-checkbox" ${enabled ? 'checked' : ''}
-            onclick="event.stopPropagation(); toggleRepoSchedule('${repo.name}')"
-            title="Enable scheduling for this repo">
           <span class="repo-name">${repo.name}</span>
           <span class="repo-badge">${workflows.length} wf</span>
         </div>
@@ -735,37 +708,6 @@ function toggleRepo(name) {
   }
   saveState();
   renderRepos();
-}
-
-function toggleRepoSchedule(name) {
-  if (state.selectedRepos.has(name)) {
-    state.selectedRepos.delete(name);
-  } else {
-    state.selectedRepos.add(name);
-  }
-  saveState();
-  updateSelectedCount();
-  renderRepos();
-}
-
-function selectAll() {
-  state.repos.forEach(r => state.selectedRepos.add(r.name));
-  saveState();
-  updateSelectedCount();
-  renderRepos();
-}
-
-function deselectAll() {
-  state.selectedRepos.clear();
-  saveState();
-  updateSelectedCount();
-  renderRepos();
-}
-
-function updateSelectedCount() {
-  const count = state.selectedWorkflows.size || state.selectedRepos.size;
-  document.getElementById('selected-count').textContent = `${count} selected`;
-  document.getElementById('trigger-selected-btn').disabled = count === 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -842,7 +784,6 @@ function renderWorkflows(repoName) {
       </thead>
       <tbody>
         ${workflows.map(wf => {
-          const checked = state.selectedWorkflows.has(`${repoName}:${wf.id}`);
           const storedBranch = wf.branch || defaultBranch;
           const isDisabled = wf.state === 'disabled_manually';
           const lastTriggered = wf.last_triggered ? new Date(wf.last_triggered * 1000) : null;
@@ -855,9 +796,6 @@ function renderWorkflows(repoName) {
             <tr>
               <td>
                 <div class="wf-name-cell">
-                  <input type="checkbox" ${checked ? 'checked' : ''}
-                    onclick="toggleWorkflow('${repoName}', ${wf.id})"
-                    title="Select for triggering">
                   <div>
                     <div class="name">${isDisabled ? '🔒' : ''}${wf.name}</div>
                     <div class="path">${wf.path} · ${wf.state}</div>
@@ -919,31 +857,6 @@ function renderWorkflows(repoName) {
       </tbody>
     </table>
   `;
-}
-
-// ---------------------------------------------------------------------------
-// Selection
-// ---------------------------------------------------------------------------
-function toggleWorkflow(repoName, workflowId) {
-  const key = `${repoName}:${workflowId}`;
-  if (state.selectedWorkflows.has(key)) {
-    state.selectedWorkflows.delete(key);
-  } else {
-    state.selectedWorkflows.add(key);
-  }
-  // Also update repo-level selection
-  updateRepoSelection(repoName);
-  updateSelectedCount();
-}
-
-function updateRepoSelection(repoName) {
-  const workflows = state.workflows[repoName] || [];
-  const hasSelected = workflows.some(w => state.selectedWorkflows.has(`${repoName}:${w.id}`));
-  if (hasSelected) {
-    state.selectedRepos.add(repoName);
-  } else {
-    state.selectedRepos.delete(repoName);
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1161,105 +1074,6 @@ async function triggerWorkflow(repoName, workflowId) {
   btn.innerHTML = '▶ Run';
 }
 
-async function triggerSelected() {
-  const items = [];
-  state.selectedWorkflows.forEach(key => {
-    const [repo, wfIdStr] = key.split(':');
-    const wf = state.workflows[repo]?.find(w => w.id === parseInt(wfIdStr));
-    if (wf) {
-      // Read the branch from the DOM select element
-      const rows = document.querySelectorAll('#content-body .wf-table tbody tr');
-      let branch = wf.branch || 'main';
-      for (const row of rows) {
-        const checkbox = row.querySelector('input[onclick*="toggleWorkflow(\'' + repo + '\', ' + wf.id + ')"');
-        if (checkbox) {
-          const select = row.querySelector('.branch-select');
-          if (select) branch = select.value;
-          break;
-        }
-      }
-      items.push({ repo, workflow_id: wf.id, name: wf.name, branch });
-    }
-  });
-  if (items.length === 0) return;
-
-  const btn = document.getElementById('trigger-selected-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>';
-
-  try {
-    const data = await api('/api/trigger-selected', {
-      method: 'POST',
-      body: JSON.stringify({ items }),
-    });
-    const success = data.results.filter(r => r.success).length;
-    const fail = data.results.filter(r => !r.success).length;
-    toast(`Triggered ${success} workflow(s)${fail ? `, ${fail} failed` : ''}`, success > 0 ? 'success' : 'error');
-    // Refresh all workflows (including status)
-    for (const repo of new Set(items.map(i => i.repo))) {
-      const wfData = await api(`/api/repos/${repo}/workflows`);
-      state.workflows[repo] = wfData.workflows || [];
-      const wfIds = (wfData.workflows || []).map(wf => wf.id);
-      if (wfIds.length > 0) {
-        const runs = await api(`/api/repos/${repo}/workflows/batch-last-run`, {
-          method: "POST",
-          body: JSON.stringify({ workflow_ids: wfIds }),
-        });
-        if (runs) {
-          state.workflows[repo].forEach(wf => {
-            if (runs[wf.id]) wf.last_run = runs[wf.id];
-          });
-        }
-      }
-    }
-    if (state.activeRepo) renderWorkflows(state.activeRepo);
-  } catch (e) {
-    toast(`Failed: ${e.message}`, 'error');
-  }
-
-  btn.disabled = false;
-  btn.innerHTML = '▶ Trigger Selected';
-}
-
-async function triggerAll() {
-  const items = [];
-  for (const repo of state.repos) {
-    const workflows = state.workflows[repo.name] || [];
-    for (const wf of workflows) {
-      if (wf.state !== 'active') continue;
-      items.push({ repo: repo.name, workflow_id: wf.id, name: wf.name, branch: wf.branch || repo.default_branch || 'main' });
-    }
-  }
-  if (items.length === 0) return;
-
-  if (!confirm(`Trigger ${items.length} workflows? This will start GitHub Actions runs.`)) return;
-
-  const btn = document.getElementById('trigger-all-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>';
-
-  try {
-    const data = await api('/api/trigger-selected', {
-      method: 'POST',
-      body: JSON.stringify({ items }),
-    });
-    const success = data.results.filter(r => r.success).length;
-    const fail = data.results.filter(r => !r.success).length;
-    toast(`Triggered ${success} workflow(s)${fail ? `, ${fail} failed` : ''}`, success > 0 ? 'success' : 'error');
-    // Refresh all
-    for (const repo of new Set(items.map(i => i.repo))) {
-      const wfData = await api(`/api/repos/${repo}/workflows`);
-      state.workflows[repo] = wfData.workflows;
-    }
-    if (state.activeRepo) renderWorkflows(state.activeRepo);
-  } catch (e) {
-    toast(`Failed: ${e.message}`, 'error');
-  }
-
-  btn.disabled = false;
-  btn.innerHTML = '▶ Trigger All';
-}
-
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
@@ -1456,7 +1270,6 @@ function closeConfig() {
 
 async function saveConfig() {
   const body = {
-    org: document.getElementById('cfg-org').value.trim(),
     refresh_interval: parseInt(document.getElementById('cfg-refresh').value) || 30,
     timezone: document.getElementById('cfg-timezone').value.trim() || 'UTC',
   };

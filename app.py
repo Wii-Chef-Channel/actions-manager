@@ -128,9 +128,8 @@ def _headers():
     return {"Authorization": f"token {_get_pat()}", "Accept": "application/vnd.github+json"}
 
 def _get_org_name():
-    """Get Org Name from config or env."""
-    cfg = _load_config()
-    return cfg.get("org") or os.environ.get("ORG_NAME", "Wii-Chef-Channel")
+    """Get Org Name — always use env var as the authoritative source."""
+    return os.environ.get("ORG_NAME", "Wii-Chef-Channel")
 
 # ---------------------------------------------------------------------------
 # GitHub API helpers
@@ -514,7 +513,7 @@ def config():
 
             full_config = cfg
             if data.get("github_pat"): full_config["github_pat"] = data["github_pat"]
-            if data.get("org"): full_config["org"] = data["org"]
+            # org is always determined by ORG_NAME env var — never save it from config
             if data.get("timezone"): full_config["timezone"] = data["timezone"]
             # Merge repos config instead of replacing — prevents wiping repos
             # that weren't included in a partial update
@@ -691,6 +690,8 @@ def _scheduler_loop():
             now = datetime.now(tz)
 
             triggered_any = False
+            if not repos_config:
+                repos_config = {}
             for repo_name, repo_cfg in repos_config.items():
                 if not isinstance(repo_cfg, dict): continue
                 if not repo_cfg.get("enabled", False): continue
