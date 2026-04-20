@@ -777,17 +777,28 @@ def _start_scheduler():
         with _scheduler_lock:
             _scheduler_state["last_triggers"].update(disk_triggers)
 
-    # Determine running state: only check disk if no thread is running
-    # (i.e., this is a fresh start, not a restart after config save)
+    # Determine running state:
+    # - If a thread already exists, scheduler was already running, keep it running
+    # - If no thread exists (fresh start or after stop), check disk ONLY if the
+    #   in-memory state was already False (meaning a previous _stop_scheduler call
+    #   explicitly disabled it). Otherwise, default to running.
     if _scheduler_state.get("thread") is not None:
         # Thread exists — scheduler was already running, keep it running
         logger.info("SCHEDULER_START: thread exists, keeping running=True")
         _scheduler_state["running"] = True
     else:
-        # No thread — fresh start or was stopped. Check disk.
-        saved_running = (cfg.get("_scheduler") or {}).get("running", None)
-        logger.info(f"SCHEDULER_START: no thread, disk_scheduled_running={saved_running}")
-        _scheduler_state["running"] = saved_running is not False
+        # No thread — fresh start or was stopped.
+        # If in-memory state was already False, honor that (explicit stop).
+        # Otherwise, default to running (explicit start or fresh install).
+        if _scheduler_state.get("running") is False:
+            # Was explicitly stopped before — check disk
+            saved_running = (cfg.get("_scheduler") or {}).get("running", None)
+            logger.info(f"SCHEDULER_START: was stopped, disk_scheduled_running={saved_running}")
+            _scheduler_state["running"] = saved_running is not False
+        else:
+            # Fresh start or explicit start — default to running
+            logger.info("SCHEDULER_START: defaulting to running=True")
+            _scheduler_state["running"] = True
 
     # Persist the determined state to disk
     cfg.setdefault("_scheduler", {})["running"] = _scheduler_state["running"]
