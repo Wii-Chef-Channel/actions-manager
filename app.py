@@ -430,6 +430,9 @@ def trigger_workflow(repo_name, workflow_id):
         repos[repo_name] = repo_cfg
         cfg["repos"] = repos
         _atomic_write(CONFIG_PATH, cfg)
+        # Invalidate workflow cache so last_triggered is fresh on next fetch
+        with _cache_lock:
+            _cache["workflows"][repo_name] = {"data": None, "ts": 0}
         return jsonify({"success": True, "message": "Triggered", "run_url": result.get("html_url", "")})
     except RuntimeError as e:
         return jsonify({"success": False, "message": str(e)}), 502
@@ -475,6 +478,9 @@ def trigger_selected():
             repos[repo] = repo_cfg
             cfg["repos"] = repos
             _atomic_write(CONFIG_PATH, cfg)
+            # Invalidate workflow cache so last_triggered is fresh on next fetch
+            with _cache_lock:
+                _cache["workflows"][repo] = {"data": None, "ts": 0}
             results.append({"repo": repo, "name": item.get("name", ""), "success": True, "message": "Triggered"})
         except RuntimeError as e:
             results.append({"repo": repo, "name": item.get("name", ""), "success": False, "message": str(e)})
