@@ -729,7 +729,7 @@ def _scheduler_loop():
                 for wf_id, wf_cfg in workflows.items():
                     if not isinstance(wf_cfg, dict): continue
                     if not wf_cfg.get("enabled_schedule", False): continue
-                    cron_expr = wf_cfg.get("cron", wf_cfg.get("schedule", ""))
+                    cron_expr = wf_cfg.get("cron") or wf_cfg.get("schedule") or ""
                     if not cron_expr or cron_expr == "disabled": continue
                     key = f"{repo_name}:{wf_id}"
                     last = _get_last_trigger(key)
@@ -738,7 +738,7 @@ def _scheduler_loop():
 
                     if is_due:
                         if last and (now.timestamp() - last) < 120: continue
-                        branch = wf_cfg.get("branch", "main")
+                        branch = wf_cfg.get("branch") or "main"
                         try:
                             _github_post(
                                 f"https://api.github.com/repos/{org}/{repo_name}/actions/workflows/{wf_id}/dispatches",
