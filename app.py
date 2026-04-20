@@ -42,6 +42,10 @@ def _ensure_config():
         default = {
             "org": ORG_NAME,
             "repos": {},
+            "_scheduler": {
+                "running": True,
+                "last_triggers": {},
+            },
         }
         with open(CONFIG_PATH, "w") as f:
             json.dump(default, f, indent=2)
@@ -51,7 +55,11 @@ def _load_config():
         if os.path.exists(CONFIG_PATH):
             try:
                 with open(CONFIG_PATH) as f:
-                    return json.load(f)
+                    cfg = json.load(f)
+                    # Ensure _scheduler key exists with defaults
+                    if "_scheduler" not in cfg:
+                        cfg["_scheduler"] = {"running": True, "last_triggers": {}}
+                    return cfg
             except (json.JSONDecodeError, IOError) as e:
                 logger.error(f"Failed to load config: {e}")
                 return {"org": ORG_NAME, "repos": {}}
