@@ -1321,6 +1321,12 @@ async function openConfig() {
           const isCustom = freq !== 'disabled' && !interval;
           const displayFreq = isCustom ? 'custom' : (interval || 'disabled');
 
+          // Store original cron value for this workflow so we can restore it if user switches to "custom"
+          if (!_modalWorkflowSettings[repoName]) _modalWorkflowSettings[repoName] = {};
+          if (!_modalWorkflowSettings[repoName].workflows) _modalWorkflowSettings[repoName].workflows = {};
+          _modalWorkflowSettings[repoName].workflows[wfId] = _modalWorkflowSettings[repoName].workflows[wfId] || {};
+          _modalWorkflowSettings[repoName].workflows[wfId].original_cron = freq;
+
           html += `<div style="display:flex;align-items:center;gap:6px;margin:4px 0;font-size:12px">`;
           html += `<input type="checkbox" ${wfEnabled ? 'checked' : ''} id="wf-${repoName}-${wfId}" onchange="toggleWfEnabled('${repoName}','${wfId}',this.checked)">`;
           html += `<span style="color:var(--text-muted);min-width:60px">${freq === 'disabled' ? 'N/A' : (isCustom ? 'custom' : freq)}</span>`;
@@ -1420,6 +1426,10 @@ function updateModalFreq(repoName, wfId, value) {
   if (!_modalWorkflowSettings[repoName].workflows) _modalWorkflowSettings[repoName].workflows = {};
   if (!_modalWorkflowSettings[repoName].workflows[wfId]) _modalWorkflowSettings[repoName].workflows[wfId] = {};
   _modalWorkflowSettings[repoName].workflows[wfId].cron = value;
+  // Clear original cron when switching to a preset so "custom" fallback only works for true custom crons
+  if (value !== 'custom') {
+    delete _modalWorkflowSettings[repoName].workflows[wfId].original_cron;
+  }
   const cronInput = document.querySelector(`#cfg-repos-list [onchange*="updateModalCron('${repoName}','${wfId}'"]`);
   if (cronInput) cronInput.disabled = value !== 'custom';
 }
@@ -1429,6 +1439,8 @@ function updateModalCron(repoName, wfId, value) {
   if (!_modalWorkflowSettings[repoName].workflows) _modalWorkflowSettings[repoName].workflows = {};
   if (!_modalWorkflowSettings[repoName].workflows[wfId]) _modalWorkflowSettings[repoName].workflows[wfId] = {};
   _modalWorkflowSettings[repoName].workflows[wfId].custom_cron = value;
+  // Also update original so it's preserved if user switches away and back
+  _modalWorkflowSettings[repoName].workflows[wfId].original_cron = value;
 }
 
 function updateModalBranch(repoName, wfId, value) {
@@ -1474,7 +1486,13 @@ async function saveConfig() {
       const wfEnabled = wfCheckbox.checked;
       const freq = freqSelect.value;
       const branch = branchSelect ? branchSelect.value : 'main';
-      const cronVal = freq === 'custom' && cronInput ? cronInput.value : (freq === 'disabled' ? 'disabled' : (FREQUENCY_MAP[freq] || 'disabled'));
+      // Use stored original cron when "custom" is selected but input is empty
+      let cronVal;
+      if (freq === 'custom') {
+        cronVal = (cronInput && cronInput.value) || (_modalWorkflowSettings[repoName]?.workflows?.[wfId]?.original_cron) || 'disabled';
+      } else {
+        cronVal = freq === 'disabled' ? 'disabled' : (FREQUENCY_MAP[freq] || 'disabled');
+      }
       workflows[wfId] = {
         enabled_schedule: wfEnabled,
         cron: cronVal,
