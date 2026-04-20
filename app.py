@@ -414,6 +414,22 @@ def trigger_workflow(repo_name, workflow_id):
             f"https://api.github.com/repos/{org}/{repo_name}/actions/workflows/{workflow_id}/dispatches",
             {"ref": branch or "main"},
         )
+        # Update last_triggered in config and in-memory state
+        now = datetime.now(timezone.utc)
+        wf_id_str = str(workflow_id)
+        with _scheduler_lock:
+            _scheduler_state["last_triggers"][f"{repo_name}:{wf_id_str}"] = now.timestamp()
+        cfg = _load_config()
+        repos = cfg.get("repos") or {}
+        repo_cfg = repos.get(repo_name, {})
+        workflows = repo_cfg.get("workflows", {})
+        if wf_id_str not in workflows:
+            workflows[wf_id_str] = {}
+        workflows[wf_id_str]["last_triggered"] = now.timestamp()
+        repo_cfg["workflows"] = workflows
+        repos[repo_name] = repo_cfg
+        cfg["repos"] = repos
+        _atomic_write(CONFIG_PATH, cfg)
         return jsonify({"success": True, "message": "Triggered", "run_url": result.get("html_url", "")})
     except RuntimeError as e:
         return jsonify({"success": False, "message": str(e)}), 502
@@ -444,6 +460,21 @@ def trigger_selected():
                 f"https://api.github.com/repos/{org}/{repo}/actions/workflows/{wf_id}/dispatches",
                 {"ref": branch},
             )
+            # Update last_triggered in config and in-memory state
+            now = datetime.now(timezone.utc)
+            with _scheduler_lock:
+                _scheduler_state["last_triggers"][f"{repo}:{wf_id}"] = now.timestamp()
+            cfg = _load_config()
+            repos = cfg.get("repos") or {}
+            repo_cfg = repos.get(repo, {})
+            workflows = repo_cfg.get("workflows", {})
+            if wf_id not in workflows:
+                workflows[wf_id] = {}
+            workflows[wf_id]["last_triggered"] = now.timestamp()
+            repo_cfg["workflows"] = workflows
+            repos[repo] = repo_cfg
+            cfg["repos"] = repos
+            _atomic_write(CONFIG_PATH, cfg)
             results.append({"repo": repo, "name": item.get("name", ""), "success": True, "message": "Triggered"})
         except RuntimeError as e:
             results.append({"repo": repo, "name": item.get("name", ""), "success": False, "message": str(e)})

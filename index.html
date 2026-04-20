@@ -1133,10 +1133,9 @@ async function triggerWorkflow(repoName, workflowId) {
       body: JSON.stringify({ branch }),
     });
     toast(`Triggered "${state.workflows[repoName]?.find(w => w.id === workflowId)?.name}"`, 'success');
-    // Refresh last run
-    const run = await api(`/api/repos/${repoName}/workflows/${workflowId}/last-run`);
-    const idx = state.workflows[repoName]?.find(w => w.id === workflowId);
-    if (idx) idx.last_run = run;
+    // Refresh workflow data to update last_triggered
+    const wfData = await api(`/api/repos/${repoName}/workflows`);
+    state.workflows[repoName] = wfData.workflows;
     if (state.activeRepo === repoName) renderWorkflows(repoName);
   } catch (e) {
     toast(`Failed: ${e.message}`, 'error');
