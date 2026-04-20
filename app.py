@@ -59,10 +59,12 @@ def _load_config():
                     # Ensure _scheduler key exists with defaults
                     if "_scheduler" not in cfg:
                         cfg["_scheduler"] = {"running": True, "last_triggers": {}}
+                    logger.info(f"CONFIG_LOAD: loaded from disk, _scheduler={cfg.get('_scheduler')}")
                     return cfg
             except (json.JSONDecodeError, IOError) as e:
-                logger.error(f"Failed to load config: {e}")
+                logger.error(f"CONFIG_LOAD: Failed to load config: {e}")
                 return {"org": ORG_NAME, "repos": {}}
+    logger.info(f"CONFIG_LOAD: file not found, returning defaults")
     return {"org": ORG_NAME, "repos": {}}
 
 _ensure_config()
@@ -760,6 +762,7 @@ def _start_scheduler():
     logger.info(f"SCHEDULER_START: thread={_scheduler_state.get('thread')}, current_running={_scheduler_state.get('running')}")
     try:
         cfg = _load_config()
+        logger.info(f"SCHEDULER_START: cfg loaded, _scheduler={cfg.get('_scheduler')}")
     except Exception as e:
         logger.error(f"Failed to load config for scheduler start: {e}")
         raise RuntimeError(f"Config error: {e}")
