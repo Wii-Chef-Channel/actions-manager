@@ -752,6 +752,10 @@ def _scheduler_loop():
     logger.info("Scheduler stopped")
 
 def _start_scheduler():
+    """Start the scheduler loop. Always defaults to running unless
+    explicitly disabled in config. Used after config saves where we
+    just stopped the scheduler to restart it — so we must not re-read
+    the 'false' value we just wrote to disk."""
     try:
         cfg = _load_config()
     except Exception as e:
@@ -765,19 +769,27 @@ def _start_scheduler():
     if disk_triggers:
         with _scheduler_lock:
             _scheduler_state["last_triggers"].update(disk_triggers)
-    # Default to running; only disable if explicitly saved as off
-    saved_running = (cfg.get("_scheduler") or {}).get("running", None)
-    if saved_running is False:
-        _scheduler_state["running"] = False
-    else:
+    # Only respect saved 'off' state if scheduler was already stopped
+    # (not just temporarily stopped for a config save).
+    # If scheduler was running, always restart it.
+    if _scheduler_state.get("thread") is not None:
+        # Scheduler was already running — keep it running
         _scheduler_state["running"] = True
-        # Persist scheduler state to disk
-        cfg.setdefault("_scheduler", {})["running"] = True
-        cfg.setdefault("_scheduler", {})["last_triggers"] = dict(_scheduler_state["last_triggers"])
-        try:
-            _atomic_write(CONFIG_PATH, cfg)
-        except Exception as e:
-            logger.error(f"Failed to persist scheduler state: {e}")
+    else:
+        # Fresh start or was stopped — check disk
+        saved_running = (cfg.get("_scheduler") or {}).get("running", None)
+        if saved_running is False:
+            _scheduler_state["running"] = False
+        else:
+            _scheduler_state["running"] = True
+    # Persist the intended state to disk
+    cfg.setdefault("_scheduler", {})["running"] = _scheduler_state["running"]
+    cfg.setdefault("_scheduler", {})["last_triggers"] = dict(_scheduler_state["last_triggers"])
+    try:
+        _atomic_write(CONFIG_PATH, cfg)
+    except Exception as e:
+        logger.error(f"Failed to persist scheduler state: {e}")
+    if _scheduler_state["running"]:
         _scheduler_state["thread"] = threading.Thread(target=_scheduler_loop, daemon=True)
         _scheduler_state["thread"].start()
 
