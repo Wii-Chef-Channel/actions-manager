@@ -400,13 +400,106 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 24px;
-  width: 480px;
+  padding: 0;
+  width: 640px;
   max-width: 90vw;
-  max-height: 80vh;
-  overflow-y: auto;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
-.modal h2 { font-size: 16px; margin-bottom: 16px; }
+.modal.modal-lg {
+  width: 720px;
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 0;
+}
+.modal-header h2 {
+  font-size: 18px;
+  margin: 0;
+}
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+.modal-close:hover {
+  background: var(--bg-input);
+  color: var(--text);
+}
+.modal-body {
+  padding: 16px 24px 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+.modal-footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-card);
+}
+.modal .config-section {
+  margin-bottom: 24px;
+}
+.modal .config-section:last-child {
+  margin-bottom: 0;
+}
+.modal .config-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.modal .config-field {
+  margin-bottom: 14px;
+}
+.modal .config-field:last-child {
+  margin-bottom: 0;
+}
+.modal .config-row {
+  display: flex;
+  gap: 16px;
+}
+.modal .config-row .config-field {
+  flex: 1;
+  margin-bottom: 14px;
+}
+.modal .config-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.modal .toggle-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+.modal .config-hint {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+.modal .config-hint code {
+  background: var(--bg-input);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+}
 .modal label {
   display: block;
   font-size: 13px;
@@ -416,17 +509,23 @@ body {
 }
 .modal input, .modal select {
   width: 100%;
-  padding: 8px 12px;
+  padding: 10px 12px;
   background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text);
-  font-size: 13px;
-  margin-bottom: 12px;
+  font-size: 14px;
 }
-.modal input:focus, .modal select:focus { outline: 1px solid var(--primary); }
-.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
-.modal .hint { font-size: 11px; color: var(--text-muted); margin-top: -8px; margin-bottom: 12px; }
+.modal input:focus, .modal select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+.modal input[readonly] {
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: default;
+}
 
 /* Toast */
 .toast-container {
@@ -438,6 +537,94 @@ body {
   flex-direction: column;
   gap: 8px;
 }
+.toast {
+
+/* Config modal list */
+.config-repos-list {
+  max-height: 360px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  background: var(--bg-input);
+}
+.config-repo {
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.config-repo:last-child {
+  margin-bottom: 0;
+}
+.config-repo-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+}
+.config-repo-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.config-repo-body {
+  padding: 8px;
+}
+.config-wf {
+  margin-bottom: 6px;
+}
+.config-wf:last-child {
+  margin-bottom: 0;
+}
+.config-wf-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+.config-wf-row:hover {
+  background: var(--bg-card);
+}
+.config-wf-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  min-width: 120px;
+}
+.config-freq {
+  width: 100px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+.config-cron {
+  width: 100px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+.config-branch {
+  width: 100px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+.config-empty {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 12px 0;
+  text-align: center;
+}
+.config-loading {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 12px 0;
+  text-align: center;
+}
+
+/* Toast */
 .toast {
   padding: 10px 16px;
   border-radius: 8px;
@@ -519,33 +706,61 @@ body {
 
 <!-- Config Modal -->
 <div class="modal-overlay" id="config-modal">
-  <div class="modal">
-    <h2>⚙ Configuration</h2>
-    <label for="cfg-org">Org Name</label>
-    <input id="cfg-org" type="text" placeholder="Wii-Chef-Channel" readonly>
-
-    <label for="cfg-pat">GitHub PAT</label>
-    <input id="cfg-pat" type="password" placeholder="ghp_xxxxxxxxxxxx">
-    <p class="hint">Classic PAT with <code>repo</code> scope. Required for private repos.</p>
-
-    <label for="cfg-refresh">Auto-refresh Interval (seconds)</label>
-    <input id="cfg-refresh" type="number" min="10" max="300" placeholder="30">
-
-    <label for="cfg-timezone">Timezone</label>
-    <input id="cfg-timezone" type="text" placeholder="UTC (e.g. America/New_York)">
-
-    <label for="cfg-scheduler">Scheduler</label>
-    <button class="btn" id="cfg-scheduler-btn" onclick="toggleScheduler()">⏱ Off</button>
-    <p class="hint">When enabled, workflows with schedule toggles ON will trigger automatically every 60s.</p>
-
-    <div id="cfg-repos-section" style="margin-top:16px">
-      <h3 style="font-size:14px;margin-bottom:8px;color:var(--text-muted)">Repos & Workflows</h3>
-      <div id="cfg-repos-list" style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:8px;background:var(--bg-input)">
-        <p style="color:var(--text-muted);font-size:13px">Loading...</p>
-      </div>
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h2>⚙ Configuration</h2>
+      <button class="modal-close" onclick="closeConfig()">✕</button>
     </div>
 
-    <div class="modal-actions">
+    <div class="modal-body">
+      <!-- General Settings -->
+      <section class="config-section">
+        <h3 class="config-section-title">General</h3>
+        <div class="config-field">
+          <label for="cfg-org">Org Name</label>
+          <input id="cfg-org" type="text" readonly>
+          <span class="config-hint">Read from ORG_NAME environment variable</span>
+        </div>
+        <div class="config-field">
+          <label for="cfg-pat">GitHub PAT</label>
+          <input id="cfg-pat" type="password" placeholder="ghp_xxxxxxxxxxxx">
+          <span class="config-hint">Leave blank to keep existing PAT. Use a Classic PAT with <code>repo</code> scope.</span>
+        </div>
+        <div class="config-row">
+          <div class="config-field">
+            <label for="cfg-refresh">Auto-refresh (seconds)</label>
+            <input id="cfg-refresh" type="number" min="10" max="300" step="5">
+          </div>
+          <div class="config-field">
+            <label for="cfg-timezone">Timezone</label>
+            <input id="cfg-timezone" type="text" placeholder="UTC">
+            <span class="config-hint">e.g. America/New_York</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Scheduler -->
+      <section class="config-section">
+        <h3 class="config-section-title">Scheduler</h3>
+        <div class="config-toggle-row">
+          <div>
+            <label class="toggle-label">Enable Scheduler</label>
+            <span class="config-hint">Automatically trigger workflows on their schedule every 60 seconds</span>
+          </div>
+          <button class="btn btn-sm" id="cfg-scheduler-btn" onclick="toggleScheduler()">⏱ Off</button>
+        </div>
+      </section>
+
+      <!-- Repos & Workflows -->
+      <section class="config-section">
+        <h3 class="config-section-title">Repos & Workflows</h3>
+        <div id="cfg-repos-list" class="config-repos-list">
+          <p class="config-loading">Loading...</p>
+        </div>
+      </section>
+    </div>
+
+    <div class="modal-footer">
       <button class="btn" onclick="closeConfig()">Cancel</button>
       <button class="btn btn-primary" onclick="saveConfig()">Save All</button>
     </div>
@@ -1105,7 +1320,7 @@ async function openConfig() {
   }
 
   if (Object.keys(reposCfg).length === 0) {
-    reposList.innerHTML = '<p style="color:var(--text-muted);font-size:13px">No repos configured.</p>';
+    reposList.innerHTML = '<p class="config-empty">No repos configured. Add repos to your GitHub organization to see them here.</p>';
   } else {
     let html = '';
     for (const [repoName, repoCfg] of Object.entries(reposCfg)) {
@@ -1113,15 +1328,15 @@ async function openConfig() {
       const workflows = repoWorkflows[repoName] || [];
       const savedWorkflows = (repoCfg.workflows || {});
 
-      html += `<div style="margin-bottom:12px;padding:8px;border:1px solid var(--border);border-radius:4px">`;
-      html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">`;
+      html += `<div class="config-repo">`;
+      html += `<div class="config-repo-header">`;
       html += `<input type="checkbox" ${repoEnabled ? 'checked' : ''} id="repo-${repoName}" onchange="toggleRepoEnabled('${repoName}', this.checked)">`;
-      html += `<strong style="font-size:13px">${repoName}</strong>`;
+      html += `<span class="config-repo-name">${repoName}</span>`;
       html += `</div>`;
-      html += `<div style="padding-left:20px">`;
+      html += `<div class="config-repo-body">`;
 
       if (workflows.length === 0) {
-        html += `<p style="color:var(--text-muted);font-size:12px;margin:4px 0">No workflows found on GitHub.</p>`;
+        html += `<p class="config-empty">No workflows found on GitHub.</p>`;
       } else {
         for (const wf of workflows) {
           const wfId = String(wf.id);
@@ -1130,7 +1345,6 @@ async function openConfig() {
           const freq = wfSaved.cron || 'disabled';
           const branches = wfSaved.branches || [];
           const branch = wfSaved.branch || (state.branches[repoName] && state.branches[repoName].length > 0 ? state.branches[repoName][0] : 'main');
-          // Reverse map cron to interval for display
           const interval = cronToInterval(freq);
           const isCustom = freq !== 'disabled' && !interval;
           const displayFreq = isCustom ? 'custom' : (interval || 'disabled');
@@ -1141,12 +1355,11 @@ async function openConfig() {
           _modalWorkflowSettings[repoName].workflows[wfId] = _modalWorkflowSettings[repoName].workflows[wfId] || {};
           _modalWorkflowSettings[repoName].workflows[wfId].original_cron = freq;
 
-          html += `<div style="display:flex;align-items:center;gap:6px;margin:4px 0;font-size:12px">`;
+          html += `<div class="config-wf">`;
+          html += `<div class="config-wf-row">`;
           html += `<input type="checkbox" ${wfEnabled ? 'checked' : ''} id="wf-${repoName}-${wfId}" onchange="toggleWfEnabled('${repoName}','${wfId}',this.checked)">`;
-          html += `<span style="color:var(--text-muted);min-width:60px">${freq === 'disabled' ? 'N/A' : (isCustom ? 'custom' : freq)}</span>`;
-          html += `<span style="color:var(--text-muted)">|</span>`;
-          html += `<span style="color:var(--text-muted);min-width:40px">${branch}</span>`;
-          html += `<select class="freq-select" style="font-size:11px" onchange="updateModalFreq('${repoName}','${wfId}',this.value)">`;
+          html += `<span class="config-wf-name">${wf.name}</span>`;
+          html += `<select class="config-freq" onchange="updateModalFreq('${repoName}','${wfId}',this.value)">`;
           html += `<option value="disabled" ${displayFreq === 'disabled' ? 'selected' : ''}>Disabled</option>`;
           html += `<option value="5m" ${displayFreq === '5m' ? 'selected' : ''}>5m</option>`;
           html += `<option value="10m" ${displayFreq === '10m' ? 'selected' : ''}>10m</option>`;
@@ -1160,15 +1373,15 @@ async function openConfig() {
           html += `<option value="daily" ${displayFreq === 'daily' ? 'selected' : ''}>Daily</option>`;
           html += `<option value="custom" ${displayFreq === 'custom' ? 'selected' : ''}>Custom</option>`;
           html += `</select>`;
-          html += `<input type="text" class="cron-input" style="font-size:11px;width:80px" placeholder="cron" value="${isCustom ? freq : ''}" onchange="updateModalCron('${repoName}','${wfId}',this.value)" ${!isCustom ? 'disabled' : ''}>`;
-          html += `<select class="branch-select" style="font-size:11px" onchange="updateModalBranch('${repoName}','${wfId}',this.value)">`;
+          html += `<input type="text" class="config-cron" placeholder="cron" value="${isCustom ? freq : ''}" onchange="updateModalCron('${repoName}','${wfId}',this.value)" ${!isCustom ? 'disabled' : ''}>`;
+          html += `<select class="config-branch" onchange="updateModalBranch('${repoName}','${wfId}',this.value)">`;
           if (branches.length > 0) {
             html += branches.map(b => `<option value="${b}" ${b === branch ? 'selected' : ''}>${b}</option>`).join('');
           } else {
             html += `<option value="${branch}">${branch}</option>`;
           }
           html += `</select>`;
-          html += `</div>`;
+          html += `</div></div>`;
         }
       }
       html += `</div></div>`;
