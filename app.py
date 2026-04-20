@@ -476,9 +476,11 @@ def config():
             # Merge repos config instead of replacing — prevents wiping repos
             # that weren't included in a partial update
             if data.get("repos"):
+                if not isinstance(full_config.get("repos"), dict):
+                    full_config["repos"] = {}
                 for rname, rcfg in data["repos"].items():
-                    if rname not in full_config.get("repos", {}):
-                        full_config.setdefault("repos", {})[rname] = {}
+                    if not isinstance(full_config["repos"].get(rname), dict):
+                        full_config["repos"][rname] = {}
                     if isinstance(rcfg, dict):
                         full_config["repos"][rname].update(rcfg)
             _atomic_write(CONFIG_PATH, full_config)
