@@ -525,6 +525,7 @@ def config():
             if data.get("timezone"): full_config["timezone"] = data["timezone"]
             # Preserve _scheduler section (scheduler loop writes running/last_triggers)
             saved_scheduler = cfg.get("_scheduler")
+            logger.info(f"CONFIG_SAVE: loaded _scheduler={saved_scheduler}")
             # Merge repos config instead of replacing — prevents wiping repos
             # that weren't included in a partial update
             if data.get("repos"):
@@ -538,6 +539,7 @@ def config():
             # Restore _scheduler section if it was present
             if saved_scheduler:
                 full_config["_scheduler"] = saved_scheduler
+            logger.info(f"CONFIG_SAVE: writing _scheduler={full_config.get('_scheduler')}")
             _atomic_write(CONFIG_PATH, full_config)
 
             with _cache_lock:
@@ -567,11 +569,16 @@ def scheduler_status():
         if not data:
             return jsonify({"error": "Missing JSON body"}), 400
         enabled = data.get("enabled", data.get("running"))
+        logger.info(f"SCHEDULER POST: enabled={enabled}, current_in_memory={_scheduler_state.get('running')}")
         try:
             if enabled is True:
+                logger.info("SCHEDULER: calling _start_scheduler()")
                 _start_scheduler()
+                logger.info(f"SCHEDULER: after _start_scheduler, running={_scheduler_state.get('running')}, thread={_scheduler_state.get('thread')}")
             elif enabled is False:
+                logger.info("SCHEDULER: calling _stop_scheduler()")
                 _stop_scheduler()
+                logger.info(f"SCHEDULER: after _stop_scheduler, running={_scheduler_state.get('running')}, thread={_scheduler_state.get('thread')}")
             else:
                 return jsonify({"error": "Invalid enabled value"}), 400
         except RuntimeError as e:
@@ -580,6 +587,7 @@ def scheduler_status():
         except Exception as e:
             logger.exception(f"Unexpected scheduler error: {e}")
             return jsonify({"error": "Scheduler error: " + str(e)}), 500
+    logger.info(f"SCHEDULER GET: returning running={_scheduler_state.get('running')}")
     return jsonify({"running": _scheduler_state.get("running", False)})
 
 @app.route("/api/repos/<repo_name>/workflow-config", methods=["POST"])
@@ -749,6 +757,7 @@ def _scheduler_loop():
 
 def _start_scheduler():
     """Start the scheduler loop. Defaults to running unless explicitly off in config."""
+    logger.info(f"SCHEDULER_START: thread={_scheduler_state.get('thread')}, current_running={_scheduler_state.get('running')}")
     try:
         cfg = _load_config()
     except Exception as e:
@@ -769,10 +778,12 @@ def _start_scheduler():
     # (i.e., this is a fresh start, not a restart after config save)
     if _scheduler_state.get("thread") is not None:
         # Thread exists — scheduler was already running, keep it running
+        logger.info("SCHEDULER_START: thread exists, keeping running=True")
         _scheduler_state["running"] = True
     else:
         # No thread — fresh start or was stopped. Check disk.
         saved_running = (cfg.get("_scheduler") or {}).get("running", None)
+        logger.info(f"SCHEDULER_START: no thread, disk_scheduled_running={saved_running}")
         _scheduler_state["running"] = saved_running is not False
 
     # Persist the determined state to disk
@@ -780,27 +791,34 @@ def _start_scheduler():
     cfg.setdefault("_scheduler", {})["last_triggers"] = dict(_scheduler_state["last_triggers"])
     try:
         _atomic_write(CONFIG_PATH, cfg)
+        logger.info(f"SCHEDULER_START: persisted running={_scheduler_state['running']} to disk")
     except Exception as e:
         logger.error(f"Failed to persist scheduler state: {e}")
 
     if _scheduler_state["running"]:
         _scheduler_state["thread"] = threading.Thread(target=_scheduler_loop, daemon=True)
         _scheduler_state["thread"].start()
+        logger.info("SCHEDULER_START: thread started")
+    else:
+        logger.info("SCHEDULER_START: not starting (running=False)")
 
 
 def _stop_scheduler():
     """Stop the scheduler and persist state to disk."""
+    logger.info("SCHEDULER_STOP: stopping scheduler")
     _scheduler_state["running"] = False
     try:
         cfg = _load_config()
         cfg.setdefault("_scheduler", {})["running"] = False
         cfg.setdefault("_scheduler", {})["last_triggers"] = dict(_scheduler_state["last_triggers"])
         _atomic_write(CONFIG_PATH, cfg)
+        logger.info("SCHEDULER_STOP: persisted running=False to disk")
     except Exception as e:
         logger.error(f"Failed to persist scheduler state: {e}")
     if _scheduler_state["thread"]:
         _scheduler_state["thread"].join(timeout=10)
         _scheduler_state["thread"] = None
+        logger.info("SCHEDULER_STOP: thread joined")
 
 # ---------------------------------------------------------------------------
 # Main
