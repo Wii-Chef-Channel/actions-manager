@@ -593,8 +593,16 @@ def scheduler_status():
         except Exception as e:
             logger.exception(f"Unexpected scheduler error: {e}")
             return jsonify({"error": "Scheduler error: " + str(e)}), 500
-    logger.info(f"SCHEDULER GET: returning running={_scheduler_state.get('running')}")
-    return jsonify({"running": _scheduler_state.get("running", False)})
+    # GET: read from disk to be consistent across gunicorn workers
+    try:
+        cfg = _load_config()
+        disk_running = (cfg.get("_scheduler") or {}).get("running", None)
+        running = disk_running is not False
+        logger.info(f"SCHEDULER GET: returning running={running} (from disk: {disk_running})")
+        return jsonify({"running": running})
+    except Exception as e:
+        logger.error(f"Scheduler GET error: {e}")
+        return jsonify({"running": False})
 
 @app.route("/api/repos/<repo_name>/workflow-config", methods=["POST"])
 def save_workflow_config(repo_name):
