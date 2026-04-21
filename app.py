@@ -185,13 +185,15 @@ def _headers():
 # ---------------------------------------------------------------------------
 # GitHub API helpers
 # ---------------------------------------------------------------------------
+_session = requests.Session()
+
 def _github_get(url, params=None):
     """GET with pagination and rate-limit awareness."""
     results = []
     page = 1
     query_params = params or {}
     while True:
-        r = requests.get(
+        r = _session.get(
             url,
             headers=_headers(),
             params={**query_params, "per_page": 100, "page": page},
@@ -220,7 +222,7 @@ def _github_get(url, params=None):
 
 
 def _github_post(url, body=None):
-    r = requests.post(url, json=body or {}, headers=_headers(), timeout=15)
+    r = _session.post(url, json=body or {}, headers=_headers(), timeout=15)
     if r.status_code == 401:
         raise RuntimeError("GitHub PAT is invalid or expired")
     if r.status_code == 403:
@@ -694,6 +696,17 @@ def scheduler_status():
         return jsonify({"running": False})
 
 
+@app.route("/api/scheduler/check-now", methods=["POST"])
+def scheduler_check_now():
+    """Manually trigger a scheduler check cycle immediately."""
+    try:
+        count = _check_and_trigger_all()
+        return jsonify({"message": f"Check complete. {count} workflows triggered."})
+    except Exception as e:
+        logger.exception(f"Manual check error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 # ---------------------------------------------------------------------------
 # Scheduler helpers
 # ---------------------------------------------------------------------------
@@ -707,128 +720,135 @@ def _set_last_trigger(key, ts):
         _scheduler_state["last_triggers"][key] = ts
 
 
+def _check_and_trigger_all():
+    """
+    Core scheduler logic: iterate all repos/workflows and trigger if due.
+    Returns the number of workflows triggered.
+    """
+    cfg = _load_config()
+    repos_config = cfg.get("repos") or {}
+    org = cfg.get("org") or ORG_NAME
+    try:
+        tz = ZoneInfo(cfg.get("timezone") or "UTC")
+    except Exception:
+        tz = ZoneInfo("UTC")
+    now = datetime.now(tz)
+    triggered_count = 0
+
+    to_trigger = [] # List of (repo_name, wf_id, branch)
+
+    for repo_name, repo_cfg in repos_config.items():
+        if not isinstance(repo_cfg, dict) or not repo_cfg.get("enabled", True):
+            continue
+        
+        workflows = repo_cfg.get("workflows") or {}
+        for wf_id, wf_cfg in workflows.items():
+            if not isinstance(wf_cfg, dict) or not wf_cfg.get("enabled_schedule", False):
+                continue
+            
+            cron_expr = wf_cfg.get("cron") or wf_cfg.get("schedule") or ""
+            if not cron_expr or cron_expr == "disabled":
+                continue
+
+            key = f"{repo_name}:{wf_id}"
+            last = _get_last_trigger(key)
+            
+            try:
+                prev_trigger = croniter(cron_expr, now).get_prev(datetime)
+            except Exception as e:
+                logger.error(f"Invalid cron {cron_expr} for {key}: {e}")
+                continue
+
+            # Due if previous trigger was in the last 60s and we haven't triggered in the last 120s
+            is_due = 0 <= (now - prev_trigger).total_seconds() < 60
+            if is_due and (not last or (now.timestamp() - last) >= 120):
+                to_trigger.append((repo_name, wf_id, wf_cfg.get("branch") or "main"))
+
+    if not to_trigger:
+        return 0
+
+    def do_trigger(item):
+        rname, wid, branch = item
+        try:
+            _github_post(
+                f"https://api.github.com/repos/{org}/{rname}/actions/workflows/{wid}/dispatches",
+                {"ref": branch},
+            )
+            logger.info(f"Scheduled trigger: {rname}/{wid}")
+            return rname, wid, True
+        except Exception as e:
+            logger.error(f"Scheduler failed {rname}/{wid}: {e}")
+            return rname, wid, False
+
+    # Parallel trigger to avoid blocking the loop
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        results = list(executor.map(do_trigger, to_trigger))
+    
+    # Update state and config for successful triggers
+    for rname, wid, success in results:
+        if success:
+            triggered_count += 1
+            ts = now.timestamp()
+            _set_last_trigger(f"{rname}:{wid}", ts)
+            (
+                cfg.setdefault("repos", {})
+                   .setdefault(rname, {})
+                   .setdefault("workflows", {})
+                   .setdefault(str(wid), {})
+            )["last_triggered"] = ts
+
+    # Persist state
+    cfg.setdefault("_scheduler", {})["last_triggers"] = dict(_scheduler_state["last_triggers"])
+    cfg["_scheduler"]["running"] = _scheduler_state["running"]
+    _atomic_write(CONFIG_PATH, cfg)
+    
+    return triggered_count
+
+
 def _scheduler_loop():
-    """Background thread: check enabled workflows every 60 s and trigger if due."""
-    logger.info("Scheduler started")
+    """Background thread: check enabled workflows periodically."""
+    logger.info("Scheduler loop started")
     while _scheduler_state["running"]:
         try:
-            cfg = _load_config()
-            repos_config = cfg.get("repos") or {}
-            org = cfg.get("org") or ORG_NAME
-            try:
-                tz = ZoneInfo(cfg.get("timezone") or "UTC")
-            except Exception:
-                tz = ZoneInfo("UTC")
-            now = datetime.now(tz)
-
-            for repo_name, repo_cfg in repos_config.items():
-                if not isinstance(repo_cfg, dict):
-                    continue
-                if not repo_cfg.get("enabled", True):
-                    continue
-                for wf_id, wf_cfg in (repo_cfg.get("workflows") or {}).items():
-                    if not isinstance(wf_cfg, dict):
-                        continue
-                    if not wf_cfg.get("enabled_schedule", False):
-                        continue
-                    cron_expr = wf_cfg.get("cron") or wf_cfg.get("schedule") or ""
-                    if not cron_expr or cron_expr == "disabled":
-                        continue
-
-                    key = f"{repo_name}:{wf_id}"
-                    last = _get_last_trigger(key)
-                    prev_trigger = croniter(cron_expr, now).get_prev(datetime)
-                    is_due = 0 <= (now - prev_trigger).total_seconds() < 60
-                    if not is_due:
-                        continue
-                    if last and (now.timestamp() - last) < 120:
-                        continue
-
-                    branch = wf_cfg.get("branch") or "main"
-                    try:
-                        _github_post(
-                            f"https://api.github.com/repos/{org}/{repo_name}/actions/workflows/{wf_id}/dispatches",
-                            {"ref": branch},
-                        )
-                        _set_last_trigger(key, now.timestamp())
-                        (
-                            cfg.setdefault("repos", {})
-                               .setdefault(repo_name, {})
-                               .setdefault("workflows", {})
-                               .setdefault(str(wf_id), {})
-                        )["last_triggered"] = now.timestamp()
-                        logger.info(f"Scheduled trigger: {repo_name}/{wf_id} at {now.isoformat()}")
-                    except RuntimeError as e:
-                        logger.error(f"Scheduler failed {repo_name}/{wf_id}: {e}")
-
-            # Persist last_triggers so they survive restarts
-            cfg.setdefault("_scheduler", {})["last_triggers"] = dict(
-                _scheduler_state["last_triggers"]
-            )
-            cfg["_scheduler"]["running"] = _scheduler_state["running"]
-            _atomic_write(CONFIG_PATH, cfg)
-
+            _check_and_trigger_all()
         except Exception as e:
             logger.error(f"Scheduler loop error: {e}")
 
+        # Sleep in small increments to respond quickly to stop signals
         for _ in range(_scheduler_config["interval"]):
             if not _scheduler_state["running"]:
                 break
             time.sleep(1)
 
-    logger.info("Scheduler stopped")
+    logger.info("Scheduler loop stopped")
 
 
 def _start_scheduler():
-    """Start the scheduler loop if not already running."""
-    try:
-        cfg = _load_config()
-    except Exception as e:
-        raise RuntimeError(f"Config error: {e}")
-
-    # Restore last_triggers from disk
+    """Start the scheduler thread if enabled."""
+    cfg = _load_config()
     disk_triggers = (cfg.get("_scheduler") or {}).get("last_triggers") or {}
-    if disk_triggers:
-        with _scheduler_lock:
-            _scheduler_state["last_triggers"].update(disk_triggers)
+    with _scheduler_lock:
+        _scheduler_state["last_triggers"].update(disk_triggers)
 
-    if not _scheduler_state.get("running"):
-        # Determine running state from disk if caller hasn't set it
-        saved = (cfg.get("_scheduler") or {}).get("running", None)
-        _scheduler_state["running"] = saved is not False
-
-    # Persist state
-    cfg.setdefault("_scheduler", {})["running"] = _scheduler_state["running"]
-    cfg["_scheduler"]["last_triggers"] = dict(_scheduler_state["last_triggers"])
-    try:
-        _atomic_write(CONFIG_PATH, cfg)
-    except Exception as e:
-        logger.error(f"Failed to persist scheduler state: {e}")
+    saved_running = (cfg.get("_scheduler") or {}).get("running", True)
+    _scheduler_state["running"] = saved_running
 
     if _scheduler_state["running"]:
-        _scheduler_state["thread"] = threading.Thread(
-            target=_scheduler_loop, daemon=True
-        )
-        _scheduler_state["thread"].start()
-        logger.info("Scheduler thread started")
+        if _scheduler_state["thread"] is None or not _scheduler_state["thread"].is_alive():
+            _scheduler_state["thread"] = threading.Thread(target=_scheduler_loop, daemon=True)
+            _scheduler_state["thread"].start()
+            logger.info("Scheduler thread spawned")
     else:
-        logger.info("Scheduler not started (disabled in config)")
+        logger.info("Scheduler disabled in config")
 
 
 def _stop_scheduler():
-    """Stop the scheduler and persist state."""
+    """Stop the scheduler thread."""
     _scheduler_state["running"] = False
-    try:
-        cfg = _load_config()
-        cfg.setdefault("_scheduler", {})["running"] = False
-        cfg["_scheduler"]["last_triggers"] = dict(_scheduler_state["last_triggers"])
-        _atomic_write(CONFIG_PATH, cfg)
-    except Exception as e:
-        logger.error(f"Failed to persist scheduler state on stop: {e}")
     if _scheduler_state["thread"]:
-        _scheduler_state["thread"].join(timeout=10)
+        _scheduler_state["thread"].join(timeout=5)
         _scheduler_state["thread"] = None
-    logger.info("Scheduler stopped")
+    logger.info("Scheduler thread joined")
 
 
 # ---------------------------------------------------------------------------

@@ -480,6 +480,30 @@ const state = {
   schedulerOn: false,
 };
 
+// ─────────────────────────────────────────────
+// State Persistence
+// ─────────────────────────────────────────────
+function saveState() {
+  const data = {
+    activeRepo: state.activeRepo,
+    expanded: Array.from(state.expanded)
+  };
+  localStorage.setItem('am_state', JSON.stringify(data));
+}
+
+function loadPersistentState() {
+  try {
+    const saved = localStorage.getItem('am_state');
+    if (saved) {
+      const data = JSON.parse(saved);
+      state.activeRepo = data.activeRepo || null;
+      if (Array.isArray(data.expanded)) {
+        state.expanded = new Set(data.expanded);
+      }
+    }
+  } catch(e) { console.warn('Failed to load state', e); }
+}
+
 // Scheduler state is tracked authoritatively here, not read from DOM
 let _schedulerOn = false;
 
@@ -667,6 +691,7 @@ function selectRepo(name) {
   // Always expand and make active; ignore subsequent clicks to prevent collapse
   state.activeRepo = name;
   state.expanded.add(name);
+  saveState();
   renderRepos();
   loadWorkflows(name);
 }
@@ -1069,10 +1094,11 @@ async function saveConfig() {
 // ─────────────────────────────────────────────
 // Auto-refresh
 // ─────────────────────────────────────────────
-function startRefresh(interval) {
-  if (state.refreshTimer) clearInterval(state.refreshTimer);
-  state.refreshTimer = setInterval(async () => {
-    if (!state.activeRepo) return;
+let _refreshTimeout = null;
+async function refreshCycle() {
+  if (_refreshTimeout) clearTimeout(_refreshTimeout);
+  
+  if (state.activeRepo) {
     try {
       const data = await api(`/api/repos/${state.activeRepo}/workflows`);
       state.workflows[state.activeRepo] = data.workflows || [];
@@ -1081,18 +1107,28 @@ function startRefresh(interval) {
         const runs = await api(`/api/repos/${state.activeRepo}/workflows/batch-last-run`, {
           method: 'POST', body: JSON.stringify({ workflow_ids: ids }),
         }).catch(() => ({}));
-        if (runs) state.workflows[state.activeRepo].forEach(wf => { if (runs[wf.id]) wf.last_run = runs[wf.id]; });
+        if (runs) {
+          state.workflows[state.activeRepo].forEach(wf => { if (runs[wf.id]) wf.last_run = runs[wf.id]; });
+        }
       }
       renderWorkflows(state.activeRepo);
       renderRepos();
-    } catch(e) { /* silent auto-refresh failure */ }
-  }, interval * 1000);
+    } catch(e) { console.debug('Refresh failed', e); }
+  }
+  
+  _refreshTimeout = setTimeout(refreshCycle, state.refreshInterval * 1000);
+}
+
+function startRefresh(interval) {
+  state.refreshInterval = interval || 30;
+  refreshCycle();
 }
 
 // ─────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────
 async function init() {
+  loadPersistentState();
   try {
     const status = await api('/api/status');
     document.getElementById('org-label').textContent = status.org || '';
@@ -1108,7 +1144,13 @@ async function init() {
     const sched = await api('/api/scheduler/status');
     updateSchedulerUI(sched.running);
   } catch(e) { /* ignore */ }
+  
   await loadRepos();
+  
+  if (state.activeRepo) {
+    loadWorkflows(state.activeRepo);
+  }
+  
   startRefresh(state.refreshInterval);
 }
 
