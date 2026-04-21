@@ -329,10 +329,113 @@ body {
 .save-indicator.show { opacity: 1; }
 
 /* Toggle switch */
-.toast-container {
-  position: fixed; bottom: 20px; right: 20px;
-  z-index: 200; display: flex; flex-direction: column; gap: 8px;
+.toggle {
+  width: 34px; height: 18px;
+  border-radius: 9px;
+  background: var(--disabled);
+  position: relative; cursor: pointer;
+  transition: background 0.2s; flex-shrink: 0;
+  border: none; outline: none;
 }
+.toggle.on { background: var(--success); }
+.toggle::after {
+  content:''; position:absolute;
+  width:14px; height:14px; border-radius:50%;
+  background:#fff; top:2px; left:2px;
+  transition: transform 0.2s;
+}
+.toggle.on::after { transform: translateX(16px); }
+
+/* ── Empty / loading states ── */
+.empty {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  text-align: center;
+  gap: 10px;
+}
+.empty p { font-size: 14px; }
+
+/* ── Config Modal ── */
+.overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 100; align-items: center; justify-content: center;
+}
+.overlay.open { display: flex; }
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 700px; max-width: 95vw; max-height: 88vh;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.modal-head h2 { font-size: 16px; font-weight: 600; }
+.modal-close {
+  background: none; border: none; font-size: 16px;
+  cursor: pointer; color: var(--text-muted);
+  padding: 4px 6px; border-radius: 4px;
+}
+.modal-close:hover { background: var(--bg-hover); color: var(--text); }
+.modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+.modal-foot {
+  display: flex; gap: 8px; justify-content: flex-end;
+  padding: 14px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-card);
+  flex-shrink: 0;
+}
+
+.cfg-section { margin-bottom: 24px; }
+.cfg-section:last-child { margin-bottom: 0; }
+.cfg-section-title {
+  font-size: 12px; font-weight: 600; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 12px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.cfg-row { display: flex; gap: 14px; }
+.cfg-field { margin-bottom: 14px; flex: 1; }
+.cfg-field:last-child { margin-bottom: 0; }
+.cfg-field label {
+  display: block; font-size: 12px; font-weight: 500;
+  color: var(--text-muted); margin-bottom: 5px;
+}
+.cfg-field input, .cfg-field select {
+  width: 100%; padding: 8px 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-size: 13px;
+}
+.cfg-field input:focus, .cfg-field select:focus {
+  outline: none; border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(88,166,255,0.15);
+}
+.cfg-field input[readonly] { background: var(--bg-card); color: var(--text-muted); cursor: default; }
+.cfg-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
+.cfg-hint code { background: var(--bg-input); padding: 1px 4px; border-radius: 3px; font-size: 10px; }
+
+/* Config scheduler toggle row */
+.cfg-toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.cfg-toggle-row .toggle-info .toggle-title { font-size: 13px; font-weight: 500; }
+.cfg-toggle-row .toggle-info .toggle-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+/* ── Toast ── */
 .toast {
   padding: 10px 16px;
   border-radius: 8px;
@@ -688,7 +791,6 @@ function showPlaceholder() {
 // Select repo
 // ─────────────────────────────────────────────
 function selectRepo(name) {
-  // Always expand and make active; ignore subsequent clicks to prevent collapse
   state.activeRepo = name;
   state.expanded.add(name);
   saveState();
