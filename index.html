@@ -603,13 +603,6 @@ body {
         </div>
       </section>
 
-      <section class="cfg-section">
-        <div class="cfg-section-title">Repos &amp; Workflows</div>
-        <div id="cfg-repos-list" class="cfg-repos">
-          <p class="cfg-empty">Loading…</p>
-        </div>
-      </section>
-
     </div>
     <div class="modal-foot">
       <button class="btn" onclick="closeConfig()">Cancel</button>
@@ -1198,9 +1191,6 @@ async function toggleScheduler() {
 // Config modal
 // ─────────────────────────────────────────────
 
-// Tracks changes made inside the config modal before Save is clicked
-const _modalEdits = {}; // { repoName: { enabled, workflows: { wfId: { enabled_schedule, cron, branch } } } }
-
 async function openConfig() {
   document.getElementById('config-modal').classList.add('open');
   const [cfgData, schedData] = await Promise.all([
@@ -1212,128 +1202,6 @@ async function openConfig() {
   document.getElementById('cfg-refresh').value = cfgData.refresh_interval || 30;
   document.getElementById('cfg-timezone').value = cfgData.timezone || 'UTC';
   updateSchedulerUI(schedData.running);
-
-  Object.keys(_modalEdits).forEach(k => delete _modalEdits[k]);
-
-  const reposCfg = cfgData.repos || {};
-  const list = document.getElementById('cfg-repos-list');
-
-  if (!Object.keys(reposCfg).length) {
-    list.innerHTML = '<p class="cfg-empty">No repos configured yet. Load a repo from the sidebar to populate its workflows, then come back here.</p>';
-    return;
-  }
-
-  list.innerHTML = '<p class="cfg-empty">Loading workflows…</p>';
-
-  // Fetch workflows for all configured repos in parallel
-  const repoNames = Object.keys(reposCfg);
-  const repoWfs = await Promise.all(repoNames.map(n =>
-    api(`/api/repos/${n}/workflows`).then(d => d.workflows || []).catch(() => [])
-  ));
-
-  const reposBranches = await Promise.all(repoNames.map(n =>
-    api(`/api/repos/${n}/branches`).then(d => d.branches || []).catch(() => [])
-  ));
-
-  let html = '';
-  repoNames.forEach((repoName, i) => {
-    const repoCfg = reposCfg[repoName] || {};
-    const wfs = repoWfs[i];
-    const branches = reposBranches[i];
-    const repoEnabled = repoCfg.enabled !== false;
-    const savedWfs = repoCfg.workflows || {};
-
-    html += `
-<div class="cfg-repo">
-  <div class="cfg-repo-head" onclick="toggleCfgRepo('${esc(repoName)}')">
-    <input type="checkbox" ${repoEnabled?'checked':''} id="cr-${esc(repoName)}" onchange="event.stopPropagation();setCfgRepoEnabled('${esc(repoName)}',this.checked)" onclick="event.stopPropagation()">
-    <span class="cfg-repo-name">${esc(repoName)}</span>
-    <span class="cfg-repo-chevron" id="crchev-${esc(repoName)}">▶</span>
-  </div>
-  <div class="cfg-repo-body" id="crb-${esc(repoName)}">`;
-
-    if (!wfs.length) {
-      html += '<p class="cfg-empty">No workflows found.</p>';
-    } else {
-      html += `<div class="cfg-wf-row" style="font-size:11px;color:var(--text-muted);padding-bottom:4px">
-        <span></span><span>Workflow</span><span>Frequency</span><span>Cron</span><span>Branch</span></div>`;
-      wfs.forEach(wf => {
-        const wfId = String(wf.id);
-        const saved = savedWfs[wfId] || {};
-        const enabled = saved.enabled_schedule !== false;
-        const cron = saved.cron || wf.cron || 'disabled';
-        const branch = saved.branch || wf.branch || (branches[0] || 'main');
-        const key = cronToKey(cron);
-        const isCustom = key === 'custom';
-        const brOpts = branches.length
-          ? branches.map(b=>`<option value="${esc(b)}"${b===branch?' selected':''}>${esc(b)}</option>`).join('')
-          : `<option value="${esc(branch)}">${esc(branch)}</option>`;
-
-        html += `
-<div class="cfg-wf-row" id="cfg-wf-${esc(repoName)}-${wfId}">
-  <input type="checkbox" ${enabled?'checked':''} onchange="setCfgWfEnabled('${esc(repoName)}','${wfId}',this.checked)">
-  <span class="cfg-wf-name" title="${esc(wf.name)}">${esc(wf.name)}</span>
-  <select class="ctrl-select cfg-wf-select" onchange="setCfgWfFreq('${esc(repoName)}','${wfId}',this)">
-    ${freqOptions(key)}
-  </select>
-  <input class="cron-inp cfg-wf-cron" id="cfg-cron-${esc(repoName)}-${wfId}"
-    value="${isCustom?esc(cron):''}" placeholder="* * * * *"
-    ${isCustom?'':'disabled'}
-    onchange="setCfgWfCron('${esc(repoName)}','${wfId}',this.value)">
-  <select class="ctrl-select" onchange="setCfgWfBranch('${esc(repoName)}','${wfId}',this.value)">
-    ${brOpts}
-  </select>
-</div>`;
-      });
-    }
-    html += '</div></div>';
-  });
-
-  list.innerHTML = html;
-}
-
-function toggleCfgRepo(name) {
-  const body = document.getElementById(`crb-${name}`);
-  const chev = document.getElementById(`crchev-${name}`);
-  if (!body) return;
-  const open = body.classList.toggle('open');
-  if (chev) chev.classList.toggle('open', open);
-}
-
-function setCfgRepoEnabled(repoName, val) {
-  if (!_modalEdits[repoName]) _modalEdits[repoName] = {};
-  _modalEdits[repoName].enabled = val;
-}
-
-function _ensureCfgWf(repoName, wfId) {
-  if (!_modalEdits[repoName]) _modalEdits[repoName] = {};
-  if (!_modalEdits[repoName].workflows) _modalEdits[repoName].workflows = {};
-  if (!_modalEdits[repoName].workflows[wfId]) _modalEdits[repoName].workflows[wfId] = {};
-  return _modalEdits[repoName].workflows[wfId];
-}
-
-function setCfgWfEnabled(repoName, wfId, val) {
-  _ensureCfgWf(repoName, wfId).enabled_schedule = val;
-}
-
-function setCfgWfFreq(repoName, wfId, sel) {
-  const val = sel.value;
-  const cronInp = document.getElementById(`cfg-cron-${repoName}-${wfId}`);
-  if (cronInp) cronInp.disabled = val !== 'custom';
-  const entry = _ensureCfgWf(repoName, wfId);
-  if (val === 'disabled') { entry.cron = 'disabled'; entry.enabled_schedule = false; }
-  else if (val === 'custom') { entry.cron = cronInp?.value || '*/10 * * * *'; entry.enabled_schedule = true; }
-  else { entry.cron = FREQ_MAP[val]; entry.enabled_schedule = true; }
-}
-
-function setCfgWfCron(repoName, wfId, val) {
-  const entry = _ensureCfgWf(repoName, wfId);
-  entry.cron = val;
-  entry.enabled_schedule = true;
-}
-
-function setCfgWfBranch(repoName, wfId, val) {
-  _ensureCfgWf(repoName, wfId).branch = val;
 }
 
 function closeConfig() {
@@ -1348,19 +1216,10 @@ async function saveConfig() {
   try {
     const body = {
       timezone: document.getElementById('cfg-timezone').value.trim() || 'UTC',
+      refresh_interval: parseInt(document.getElementById('cfg-refresh').value) || 30,
     };
     const pat = document.getElementById('cfg-pat').value.trim();
     if (pat) body.github_pat = pat;
-
-    // Build repos payload from _modalEdits
-    if (Object.keys(_modalEdits).length) {
-      body.repos = {};
-      for (const [repoName, edits] of Object.entries(_modalEdits)) {
-        body.repos[repoName] = {};
-        if ('enabled' in edits) body.repos[repoName].enabled = edits.enabled;
-        if (edits.workflows) body.repos[repoName].workflows = edits.workflows;
-      }
-    }
 
     await api('/api/config', { method: 'POST', body: JSON.stringify(body) });
     toast('Configuration saved', 'success');
