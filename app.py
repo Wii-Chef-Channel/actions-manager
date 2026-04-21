@@ -694,48 +694,6 @@ def scheduler_status():
         return jsonify({"running": False})
 
 
-@app.route("/api/repos/<repo_name>/workflow-config", methods=["POST"])
-def save_workflow_config(repo_name):
-    """Save frequency and branch settings for workflows in a repo."""
-    err = _validate_name(repo_name, "repo")
-    if err:
-        return jsonify({"error": err}), 400
-
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "Missing JSON body"}), 400
-
-    workflows_cfg = data.get("workflows") or {}
-    if not workflows_cfg:
-        return jsonify({"error": "No workflows config provided"}), 400
-
-    cfg = _load_config()
-    # Auto-create repo entry if it doesn't exist yet (new repos)
-    repo_entry = cfg.setdefault("repos", {}).setdefault(repo_name, {})
-    wf_store = repo_entry.setdefault("workflows", {})
-
-    for wf_id, wf_settings in workflows_cfg.items():
-        if not _GITHUB_ID_RE.match(str(wf_id)):
-            continue
-        wf_id = str(wf_id)
-        entry = wf_store.setdefault(wf_id, {})
-        if "cron" in wf_settings:
-            entry["cron"] = wf_settings["cron"]
-        if "branch" in wf_settings:
-            entry["branch"] = wf_settings["branch"]
-        if "enabled_schedule" in wf_settings:
-            entry["enabled_schedule"] = wf_settings["enabled_schedule"]
-        elif "enabled" in wf_settings:
-            entry["enabled_schedule"] = wf_settings["enabled"]
-
-    _atomic_write(CONFIG_PATH, cfg)
-
-    with _cache_lock:
-        _cache_invalidate(f"workflows:{ORG_NAME}:{repo_name}")
-
-    return jsonify({"message": "Config saved"})
-
-
 # ---------------------------------------------------------------------------
 # Scheduler helpers
 # ---------------------------------------------------------------------------
@@ -766,7 +724,7 @@ def _scheduler_loop():
             for repo_name, repo_cfg in repos_config.items():
                 if not isinstance(repo_cfg, dict):
                     continue
-                if not repo_cfg.get("enabled", False):
+                if not repo_cfg.get("enabled", True):
                     continue
                 for wf_id, wf_cfg in (repo_cfg.get("workflows") or {}).items():
                     if not isinstance(wf_cfg, dict):
