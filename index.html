@@ -463,6 +463,37 @@ body {
 .h-failure { background: var(--failure); }
 .h-running { background: var(--running); }
 
+.agg-graph-container {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+.agg-graph-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.agg-graph-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.agg-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.legend-color { width: 10px; height: 10px; border-radius: 2px; }
+
 .spark-wrap {
   display: flex;
   align-items: flex-end;
@@ -855,6 +886,44 @@ function selectDashboard() {
   renderDashboard();
 }
 
+function getLineColor(i) {
+  const colors = ['#58a6ff', '#3fb950', '#f85149', '#d29922', '#db61a2', '#a371f7', '#ffa657', '#7ee787', '#ff7b72', '#a5d6ff'];
+  return colors[i % colors.length];
+}
+
+function renderAggregateSVG(stats) {
+  const width = 800;
+  const height = 180;
+  const padding = 20;
+  
+  // Find global max to scale Y axis
+  let maxRuns = 0;
+  stats.forEach(s => {
+    (s.hourly_runs || []).forEach(count => { if(count > maxRuns) maxRuns = count; });
+  });
+  if (maxRuns === 0) maxRuns = 1;
+
+  const points = stats.map((s, seriesIdx) => {
+    const hourly = s.hourly_runs || Array(24).fill(0);
+    const color = getLineColor(seriesIdx);
+    const pathData = hourly.map((count, i) => {
+      const x = padding + (i * (width - 2 * padding) / 23);
+      const y = (height - padding) - (count * (height - 2 * padding) / maxRuns);
+      return `${i === 0 ? 'M' : 'L'} ${x},${y}`;
+    }).join(' ');
+    
+    return `<path d="${pathData}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />`;
+  }).join('');
+
+  // Draw X axis
+  const xAxis = `<line x1="${padding}" y1="${height-padding}" x2="${width-padding}" y2="${height-padding}" stroke="var(--border)" stroke-width="1" />`;
+  
+  return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="width:100%; height:100%; display:block">
+    ${xAxis}
+    ${points}
+  </svg>`;
+}
+
 async function renderDashboard() {
   const body = document.getElementById('content-body');
   document.getElementById('content-header').style.display = 'flex';
@@ -893,7 +962,25 @@ async function renderDashboard() {
         </div>
       </div>
 
-      <div class="cfg-section-title">Workflow Performance (Top 10 Recent)</div>
+      <div class="agg-graph-container">
+        <div class="agg-graph-header">
+          <div class="agg-graph-title">Execution Comparison (Last 24 Hours)</div>
+          <div style="font-size:11px;color:var(--text-muted)">Overlaying all scheduled runs by hour</div>
+        </div>
+        <div id="agg-svg-wrap" style="width:100%; height:180px">
+          ${renderAggregateSVG(stats)}
+        </div>
+        <div class="agg-legend">
+          ${stats.map((s, i) => `
+            <div class="legend-item">
+              <div class="legend-color" style="background:${getLineColor(i)}"></div>
+              <span>${esc(s.repo)}: ${esc((state.workflows[s.repo] || []).find(w => String(w.id) === String(s.workflow_id))?.name || s.workflow_id)}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="cfg-section-title">Workflow Performance</div>
       <table class="wf-table">
         <thead>
           <tr>
