@@ -704,13 +704,26 @@ def scheduler_stats():
             success_count = len([r for r in runs if r.get("conclusion") == "success"])
             failure_count = len([r for r in runs if r.get("conclusion") in ("failure", "timed_out")])
             
+            # Bucket runs by hour for graphing
+            hourly_buckets = [0] * 24
+            for r in runs:
+                try:
+                    created_at = datetime.fromisoformat(r["created_at"].replace("Z", "+00:00"))
+                    diff = now - created_at
+                    hour_idx = int(diff.total_seconds() // 3600)
+                    if 0 <= hour_idx < 24:
+                        hourly_buckets[23 - hour_idx] += 1 # 0 is 24h ago, 23 is current hour
+                except Exception:
+                    continue
+
             return {
                 "repo": rname,
                 "workflow_id": wid,
                 "run_count_24h": run_count,
                 "success_count_24h": success_count,
                 "failure_count_24h": failure_count,
-                "last_runs": [_run_dict(r) for r in runs[:10]] # Increased to 10 for better "important info"
+                "hourly_runs": hourly_buckets,
+                "last_runs": [_run_dict(r) for r in runs[:10]]
             }
         except Exception as e:
             logger.error(f"Stats fetch failed for {rname}/{wid}: {e}")

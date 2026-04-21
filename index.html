@@ -463,6 +463,23 @@ body {
 .h-failure { background: var(--failure); }
 .h-running { background: var(--running); }
 
+.spark-wrap {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 24px;
+  width: 120px;
+  padding: 2px 0;
+}
+.spark-bar {
+  flex: 1;
+  background: var(--primary);
+  opacity: 0.3;
+  border-radius: 1px 1px 0 0;
+  min-height: 1px;
+}
+.spark-bar.active { opacity: 0.8; }
+
 /* ── Toast ── */
 .toast {
   padding: 10px 16px;
@@ -903,6 +920,15 @@ async function renderDashboard() {
                 </td>
                 <td>
                   <span class="status-badge ${rate >= 90 ? 's-success' : 's-failure'}">${rate}%</span>
+                </td>
+                <td>
+                  <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">Activity (24h)</div>
+                  <div class="spark-wrap" title="Hourly run density: Left (24h ago) to Right (Now)">
+                    ${(s.hourly_runs || []).map(count => {
+                      const height = count === 0 ? 1 : Math.min(24, count * 4);
+                      return `<div class="spark-bar ${count>0?'active':''}" style="height:${height}px"></div>`;
+                    }).join('')}
+                  </div>
                 </td>
                 <td>
                   <div class="history-dots">
