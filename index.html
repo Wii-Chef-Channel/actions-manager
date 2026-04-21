@@ -722,12 +722,52 @@ async function loadRepos() {
   try {
     const data = await api('/api/repos');
     state.repos = data.repos || [];
+
+    // Automatically expand all repos and load their workflows for the sidebar
+    state.repos.forEach(repo => {
+      state.expanded.add(repo.name);
+      loadWorkflowsForSidebar(repo.name);
+    });
+
     renderRepos();
+
     if (state.activeRepo) {
       const still = state.repos.find(r => r.name === state.activeRepo);
-      if (!still) { state.activeRepo = null; showPlaceholder(); }
+      if (!still) {
+        state.activeRepo = null;
+        showPlaceholder();
+      } else {
+        // Refresh active repo view without clearing content first
+        loadWorkflows(state.activeRepo);
+      }
     }
   } catch(e) { toast(e.message, 'error'); }
+}
+
+async function loadWorkflowsForSidebar(repoName) {
+  try {
+    const data = await api(`/api/repos/${repoName}/workflows`);
+    state.workflows[repoName] = data.workflows || [];
+    renderRepos();
+
+    // Load last run for all workflows in one batch call
+    const wfIds = (data.workflows || []).map(wf => wf.id);
+    if (wfIds.length > 0) {
+      const runs = await api(`/api/repos/${repoName}/workflows/batch-last-run`, {
+        method: "POST",
+        body: JSON.stringify({ workflow_ids: wfIds })
+      });
+      if (runs && state.workflows[repoName]) {
+        state.workflows[repoName].forEach(wf => {
+          if (runs[wf.id]) wf.last_run = runs[wf.id];
+        });
+        renderRepos();
+        if (state.activeRepo === repoName) renderWorkflows(repoName);
+      }
+    }
+  } catch (e) {
+    console.warn(`Failed to load workflows for ${repoName}:`, e);
+  }
 }
 
 function renderRepos() {
@@ -752,6 +792,7 @@ function renderRepos() {
     </span>
   </div>
   <div class="repo-children ${open?'open':''}">
+    ${wfs.length === 0 && open ? '<div class="wf-row-mini"><span class="spinner" style="width:10px;height:10px"></span><span class="wf-mini-name">Loading...</span></div>' : ''}
     ${wfs.map(wf => `
       <div class="wf-row-mini">
         <span class="run-dot" style="background:${runDotColor(wf.last_run?.conclusion, wf.last_run?.status)}"></span>
@@ -775,14 +816,7 @@ function showPlaceholder() {
 // Select repo
 // ─────────────────────────────────────────────
 function selectRepo(name) {
-  if (state.activeRepo === name) {
-    // Collapse
-    state.expanded.delete(name);
-    state.activeRepo = null;
-    renderRepos();
-    showPlaceholder();
-    return;
-  }
+  // Always expand and make active; ignore subsequent clicks to prevent collapse
   state.activeRepo = name;
   state.expanded.add(name);
   renderRepos();
@@ -793,11 +827,16 @@ function selectRepo(name) {
 // Load workflows
 // ─────────────────────────────────────────────
 async function loadWorkflows(repoName) {
+  const body = document.getElementById('content-body');
+  const hasData = state.workflows[repoName] && state.workflows[repoName].length > 0;
+
+  if (!hasData) {
+    body.innerHTML = '<div class="empty"><div class="spinner"></div><p style="margin-top:8px">Loading…</p></div>';
+  }
   document.getElementById('content-header').style.display = 'flex';
   document.getElementById('content-title').textContent = repoName;
   document.getElementById('content-subtitle').textContent = '';
   document.getElementById('content-header-right').innerHTML = '';
-  document.getElementById('content-body').innerHTML = '<div class="empty"><div class="spinner"></div><p style="margin-top:8px">Loading…</p></div>';
 
   try {
     const [wfData, brData] = await Promise.all([
@@ -820,7 +859,11 @@ async function loadWorkflows(repoName) {
       }
     }
   } catch(e) {
-    document.getElementById('content-body').innerHTML = `<div class="empty"><p style="color:var(--failure)">Error: ${esc(e.message)}</p></div>`;
+    if (!hasData) {
+      body.innerHTML = `<div class="empty"><p style="color:var(--failure)">Error: ${esc(e.message)}</p></div>`;
+    } else {
+      toast(`Failed to refresh workflows: ${e.message}`, 'error');
+    }
   }
 }
 
