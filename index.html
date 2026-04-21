@@ -650,7 +650,7 @@ const REV_FREQ = Object.fromEntries(Object.entries(FREQ_MAP).map(([k,v])=>[v,k])
 
 function cronToKey(cron) {
   if (!cron || cron === 'disabled') return 'disabled';
-  return REV_FREQ[cron] || 'custom';
+  return REV_FREQ[cron] || 'disabled';
 }
 
 // ─────────────────────────────────────────────
@@ -703,7 +703,7 @@ function freqOptions(selected) {
     ['disabled','Disabled'],['5m','Every 5 min'],['10m','Every 10 min'],
     ['15m','Every 15 min'],['30m','Every 30 min'],['1h','Every hour'],
     ['2h','Every 2 hrs'],['4h','Every 4 hrs'],['6h','Every 6 hrs'],
-    ['12h','Every 12 hrs'],['daily','Daily midnight'],['custom','Custom cron…'],
+    ['12h','Every 12 hrs'],['daily','Daily midnight'],
   ];
   return opts.map(([v,l])=>`<option value="${v}"${v===selected?' selected':''}>${l}</option>`).join('');
 }
@@ -909,11 +909,7 @@ function renderWorkflows(repoName) {
   <tbody>
     ${wfs.map(wf => {
       const key = cronToKey(wf.cron);
-      const isCustom = key === 'custom';
       const disabled = wf.state === 'disabled_manually';
-      const lastTriggered = wf.last_triggered
-        ? new Date(wf.last_triggered*1000).toLocaleString()
-        : 'Never';
       return `
 <tr data-wfid="${wf.id}">
   <td><input type="checkbox" class="wf-sel" value="${wf.id}" onchange="onSelectChange('${esc(repoName)}')"></td>
@@ -936,7 +932,6 @@ function renderWorkflows(repoName) {
     <select class="ctrl-select" style="width:130px" onchange="updateFreq('${esc(repoName)}',${wf.id},this)" data-wfid="${wf.id}">
       ${freqOptions(key)}
     </select>
-    ${isCustom ? `<input class="cron-inp" value="${esc(wf.cron)}" placeholder="*/10 * * * *" onchange="updateCron('${esc(repoName)}',${wf.id},this.value)" onblur="updateCron('${esc(repoName)}',${wf.id},this.value)">` : ''}
     <span class="save-indicator" id="si-freq-${wf.id}">✓ saved</span>
   </td>
   <td>
@@ -1027,27 +1022,12 @@ async function updateFreq(repoName, wfId, el) {
   if (val === 'disabled') {
     wf.cron = 'disabled';
     wf.enabled_schedule = false;
-  } else if (val === 'custom') {
-    wf.cron = wf.cron && wf.cron !== 'disabled' && !FREQ_MAP[cronToKey(wf.cron)] ? wf.cron : '*/10 * * * *';
-    wf.enabled_schedule = true;
   } else {
     wf.cron = FREQ_MAP[val];
     wf.enabled_schedule = true;
   }
 
   renderWorkflows(repoName);
-  if (val !== 'custom') {
-    await _saveFreqAndShow(repoName, wf);
-  }
-}
-
-async function updateCron(repoName, wfId, val) {
-  const wfs = state.workflows[repoName];
-  if (!wfs) return;
-  const wf = wfs.find(w => w.id === wfId);
-  if (!wf || wf.cron === val) return;
-  wf.cron = val;
-  wf.enabled_schedule = true;
   await _saveFreqAndShow(repoName, wf);
 }
 
