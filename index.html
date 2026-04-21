@@ -779,8 +779,10 @@ function renderRepos() {
   el.innerHTML = state.repos.map(repo => {
     const open = state.expanded.has(repo.name);
     const active = state.activeRepo === repo.name;
-    const wfs = state.workflows[repo.name] || [];
-    const hasSchedule = wfs.some(w => w.enabled_schedule);
+    const wfs = state.workflows[repo.name];
+    const hasSchedule = wfs && wfs.some(w => w.enabled_schedule);
+    const isLoaded = wfs !== undefined;
+
     return `
 <div class="repo-item">
   <div class="repo-header ${active?'active':''}" onclick="selectRepo('${esc(repo.name)}')">
@@ -788,18 +790,19 @@ function renderRepos() {
     <span class="repo-name">${esc(repo.name)}</span>
     <span class="repo-meta">
       ${hasSchedule ? '<span class="repo-sched-dot" title="Schedule active"></span>' : ''}
-      ${wfs.length ? `<span class="repo-count">${wfs.length}</span>` : ''}
+      ${isLoaded && wfs.length ? `<span class="repo-count">${wfs.length}</span>` : ''}
     </span>
   </div>
   <div class="repo-children ${open?'open':''}">
-    ${wfs.length === 0 && open ? '<div class="wf-row-mini"><span class="spinner" style="width:10px;height:10px"></span><span class="wf-mini-name">Loading...</span></div>' : ''}
-    ${wfs.map(wf => `
+    ${!isLoaded && open ? '<div class="wf-row-mini"><span class="spinner" style="width:10px;height:10px"></span><span class="wf-mini-name">Loading...</span></div>' : ''}
+    ${isLoaded && wfs.length === 0 && open ? '<div class="wf-row-mini"><span class="wf-mini-name" style="opacity:0.5;font-style:italic">No workflows</span></div>' : ''}
+    ${isLoaded ? wfs.map(wf => `
       <div class="wf-row-mini">
         <span class="run-dot" style="background:${runDotColor(wf.last_run?.conclusion, wf.last_run?.status)}"></span>
         <span class="wf-mini-name" title="${esc(wf.name)}">${esc(wf.name)}</span>
         <div class="mini-toggle ${wf.enabled_schedule?'on':''}" onclick="event.stopPropagation();quickToggleSchedule('${esc(repo.name)}',${wf.id})" title="${wf.enabled_schedule?'Disable':'Enable'} schedule"></div>
       </div>
-    `).join('')}
+    `).join('') : ''}
   </div>
 </div>`;
   }).join('');
