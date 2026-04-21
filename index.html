@@ -435,6 +435,34 @@ body {
 .cfg-toggle-row .toggle-info .toggle-title { font-size: 13px; font-weight: 500; }
 .cfg-toggle-row .toggle-info .toggle-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 
+/* ── Dashboard / Stats ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.stat-label { font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+.stat-value { font-size: 24px; font-weight: 700; color: var(--text); }
+.stat-trend { font-size: 11px; margin-top: 4px; }
+.trend-up { color: var(--success); }
+.trend-down { color: var(--failure); }
+
+.history-dots { display: flex; gap: 3px; margin-top: 6px; }
+.h-dot { width: 8px; height: 8px; border-radius: 2px; background: var(--disabled); display: block; }
+.h-success { background: var(--success); }
+.h-failure { background: var(--failure); }
+.h-running { background: var(--running); }
+
 /* ── Toast ── */
 .toast {
   padding: 10px 16px;
@@ -776,7 +804,15 @@ function renderRepos() {
   }).join('');
 
   const overviewActive = state.activeRepo === '_overview';
+  const dashboardActive = state.activeRepo === '_dashboard';
+
   el.innerHTML = `
+    <div class="repo-item">
+      <div class="repo-header ${dashboardActive?'active':''}" onclick="selectDashboard()">
+        <span class="repo-chevron" style="visibility:hidden">▶</span>
+        <span class="repo-name">📊 Dashboard</span>
+      </div>
+    </div>
     <div class="repo-item">
       <div class="repo-header ${overviewActive?'active':''}" onclick="selectOverview()">
         <span class="repo-chevron" style="visibility:hidden">▶</span>
@@ -793,6 +829,96 @@ function selectOverview() {
   saveState();
   renderRepos();
   renderOverview();
+}
+
+function selectDashboard() {
+  state.activeRepo = '_dashboard';
+  saveState();
+  renderRepos();
+  renderDashboard();
+}
+
+async function renderDashboard() {
+  const body = document.getElementById('content-body');
+  document.getElementById('content-header').style.display = 'flex';
+  document.getElementById('content-title').textContent = 'Insights Dashboard';
+  document.getElementById('content-subtitle').textContent = 'Aggregated performance metrics (24h)';
+  document.getElementById('content-header-right').innerHTML = '';
+
+  const hasData = state._dashboardStats !== undefined;
+  if (!hasData) {
+    body.innerHTML = '<div class="empty"><div class="spinner"></div><p>Aggregating stats...</p></div>';
+  }
+
+  try {
+    const data = await api('/api/scheduler/stats');
+    state._dashboardStats = data;
+    const { summary, stats } = data;
+
+    body.innerHTML = `
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-label">Scheduled</span>
+          <span class="stat-value">${summary.total_scheduled}</span>
+          <span class="stat-trend">Workflows active</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Runs (24h)</span>
+          <span class="stat-value">${summary.total_runs_24h}</span>
+          <span class="stat-trend">Total executions</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Success Rate</span>
+          <span class="stat-value">${summary.success_rate_24h}%</span>
+          <span class="stat-trend ${summary.success_rate_24h > 90 ? 'trend-up' : 'trend-down'}">
+            ${summary.success_rate_24h > 90 ? '✓ High stability' : '⚠ Action required'}
+          </span>
+        </div>
+      </div>
+
+      <div class="cfg-section-title">Workflow Performance (Top 10 Recent)</div>
+      <table class="wf-table">
+        <thead>
+          <tr>
+            <th>Repository</th>
+            <th>Workflow</th>
+            <th>Runs (24h)</th>
+            <th>Stability</th>
+            <th>History</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${stats.map(s => {
+            const wfs = state.workflows[s.repo] || [];
+            const wf = wfs.find(w => String(w.id) === String(s.workflow_id));
+            const name = wf ? wf.name : s.workflow_id;
+            const rate = s.run_count_24h > 0 ? Math.round(s.success_count_24h / s.run_count_24h * 100) : 0;
+            return `
+              <tr>
+                <td style="font-weight:600;color:var(--primary)">${esc(s.repo)}</td>
+                <td><div class="wf-info"><div class="wf-title">${esc(name)}</div></div></td>
+                <td>
+                  <span style="font-weight:600">${s.run_count_24h}</span>
+                  <span style="font-size:11px;color:var(--text-muted)"> (${s.success_count_24h} ok)</span>
+                </td>
+                <td>
+                  <span class="status-badge ${rate >= 90 ? 's-success' : 's-failure'}">${rate}%</span>
+                </td>
+                <td>
+                  <div class="history-dots">
+                    ${(s.last_runs || []).reverse().slice(-10).map(r => `
+                      <a href="${r.display_url}" target="_blank" class="h-dot h-${r.status === 'in_progress' ? 'running' : (r.conclusion || 'none')}" title="${r.relative_time}: ${r.conclusion || r.status}"></a>
+                    `).join('')}
+                  </div>
+                </td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch(e) {
+    body.innerHTML = `<div class="empty"><p style="color:var(--failure)">Error fetching dashboard: ${e.message}</p></div>`;
+  }
 }
 
 function renderOverview() {
@@ -1270,7 +1396,11 @@ let _refreshTimeout = null;
 async function refreshCycle() {
   if (_refreshTimeout) clearTimeout(_refreshTimeout);
   
-  if (state.activeRepo) {
+  if (state.activeRepo === '_dashboard') {
+    await renderDashboard();
+  } else if (state.activeRepo === '_overview') {
+    renderOverview();
+  } else if (state.activeRepo) {
     try {
       const data = await api(`/api/repos/${state.activeRepo}/workflows`);
       state.workflows[state.activeRepo] = data.workflows || [];
@@ -1319,7 +1449,11 @@ async function init() {
   
   await loadRepos();
   
-  if (state.activeRepo) {
+  if (state.activeRepo === '_dashboard') {
+    renderDashboard();
+  } else if (state.activeRepo === '_overview') {
+    renderOverview();
+  } else if (state.activeRepo) {
     loadWorkflows(state.activeRepo);
   }
   

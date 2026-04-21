@@ -663,6 +663,81 @@ def config():
     })
 
 
+@app.route("/api/scheduler/stats")
+def scheduler_stats():
+    """Get run statistics for all scheduled workflows in the last 24 hours."""
+    cfg = _load_config()
+    repos_config = cfg.get("repos", {})
+    org = cfg.get("org") or ORG_NAME
+    
+    # Identify all scheduled workflows
+    scheduled_items = []
+    for rname, rcfg in repos_config.items():
+        wfs = rcfg.get("workflows", {})
+        for wid, wcfg in wfs.items():
+            if wcfg.get("enabled_schedule"):
+                scheduled_items.append({
+                    "repo": rname,
+                    "workflow_id": wid,
+                    "cron": wcfg.get("cron"),
+                    "branch": wcfg.get("branch") or "main"
+                })
+
+    if not scheduled_items:
+        return jsonify({"stats": [], "summary": {"total_runs_24h": 0, "success_rate_24h": 0, "total_scheduled": 0}})
+
+    now = datetime.now(timezone.utc)
+    since = (now - timedelta(hours=24)).isoformat().replace("+00:00", "Z")
+
+    def fetch_wf_stats(item):
+        rname = item["repo"]
+        wid = item["workflow_id"]
+        try:
+            # Fetch runs from last 24h
+            data = _github_get(
+                f"https://api.github.com/repos/{org}/{rname}/actions/workflows/{wid}/runs",
+                {"created": f">{since}", "per_page": 100}
+            )
+            runs = data.get("workflow_runs", []) if isinstance(data, dict) else data
+            
+            run_count = len(runs)
+            success_count = len([r for r in runs if r.get("conclusion") == "success"])
+            failure_count = len([r for r in runs if r.get("conclusion") in ("failure", "timed_out")])
+            
+            return {
+                "repo": rname,
+                "workflow_id": wid,
+                "run_count_24h": run_count,
+                "success_count_24h": success_count,
+                "failure_count_24h": failure_count,
+                "last_runs": [_run_dict(r) for r in runs[:10]] # Increased to 10 for better "important info"
+            }
+        except Exception as e:
+            logger.error(f"Stats fetch failed for {rname}/{wid}: {e}")
+            return {
+                "repo": rname,
+                "workflow_id": wid,
+                "run_count_24h": 0,
+                "success_count_24h": 0,
+                "failure_count_24h": 0,
+                "error": str(e)
+            }
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        results = list(executor.map(fetch_wf_stats, scheduled_items))
+
+    total_runs = sum(r["run_count_24h"] for r in results)
+    total_success = sum(r["success_count_24h"] for r in results)
+    
+    summary = {
+        "total_scheduled": len(scheduled_items),
+        "total_runs_24h": total_runs,
+        "success_rate_24h": round((total_success / total_runs * 100), 1) if total_runs > 0 else 0
+    }
+
+    return jsonify({"stats": results, "summary": summary})
+
+
 @app.route("/api/scheduler/status", methods=["GET", "POST"])
 def scheduler_status():
     """Get or set scheduler state."""
