@@ -1529,7 +1529,11 @@ async function renderDashboard() {
               <th>Activity (24h)</th><th>Recent History</th><th>Freq</th><th>Branch</th><th>Actions</th>
             </tr></thead>
             <tbody>
-              ${stats.map(s => {
+              ${[...stats].sort((a,b) => {
+                const ai = state.repos.findIndex(r=>r.name===a.repo);
+                const bi = state.repos.findIndex(r=>r.name===b.repo);
+                return (ai===-1?Infinity:ai) - (bi===-1?Infinity:bi);
+              }).map(s => {
                 const wfs = state.workflows[s.repo]||[];
                 const wf = wfs.find(w=>String(w.id)===String(s.workflow_id));
                 const name = wf ? wf.name : s.workflow_id;
