@@ -1536,7 +1536,7 @@ async function renderDashboard() {
                 const rate = s.run_count_24h > 0 ? Math.round(s.success_count_24h/s.run_count_24h*100) : 0;
                 return `<tr>
                   <td style="font-weight:600;color:var(--primary);white-space:nowrap">${esc(s.repo)}</td>
-                  <td><div class="wf-info"><div class="wf-title"><a href="${wf?.last_run?.display_url||'#'}" target="_blank" style="color:inherit;text-decoration:none;">${esc(name)}</a></div></div></td>
+                  <td><div class="wf-info"><div class="wf-title">${esc(name)}</div></div></td>
                   <td style="text-align:center;font-weight:600">${s.run_count_24h}</td>
                   <td style="text-align:center"><span class="status-badge ${rate>=90?'s-success':'s-failure'}">${rate}%</span></td>
                   <td><div class="spark-wrap">${(s.hourly_runs||[]).map(c => `<div class="spark-bar ${c>0?'active':''}" style="height:${c===0?1:Math.min(28,c*4)}px"></div>`).join('')}</div></td>
