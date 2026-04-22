@@ -281,15 +281,8 @@ body {
   padding: 9px 12px;
   font-size: 13px;
   border-bottom: 1px solid var(--border);
-  white-space: nowrap;
+  vertical-align: middle;
 }
-.wf-table td:nth-child(1) { width: 140px; }
-.wf-table td:nth-child(2) { min-width: 160px; }
-.wf-table td:nth-child(3) { width: 70px; text-align: center; }
-.wf-table td:nth-child(4) { width: 80px; text-align: center; }
-.wf-table td:nth-child(5) { width: 90px; }
-.wf-table td:nth-child(6) { width: 110px; }
-.wf-table td:nth-child(7) { width: 70px; text-align: right; }
 .wf-table tr:last-child td { border-bottom: none; }
 .wf-table tbody tr { transition: background 0.1s; }
 .wf-table tbody tr:hover td { background: var(--bg-hover); }
@@ -1057,10 +1050,9 @@ async function renderDashboard() {
           <tr>
             <th>Repository</th>
             <th>Workflow</th>
-            <th>Runs (24h)</th>
-            <th>Stability</th>
-            <th>Activity (24h)</th>
-            <th>Recent History</th>
+            <th>Status</th>
+            <th>Frequency</th>
+            <th>Branch</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -1070,32 +1062,16 @@ async function renderDashboard() {
             const wf = wfs.find(w => String(w.id) === String(s.workflow_id));
             const name = wf ? wf.name : s.workflow_id;
             const rate = s.run_count_24h > 0 ? Math.round(s.success_count_24h / s.run_count_24h * 100) : 0;
+            const enabled_schedule = wf && wf.enabled_schedule;
+            const cron = wf && wf.cron ? cronToKey(wf.cron) : '—';
+            const branch = wf && wf.branch ? wf.branch : 'main';
             return `
               <tr>
                 <td style="font-weight:600;color:var(--primary)">${esc(s.repo)}</td>
                 <td><div class="wf-info"><div class="wf-title">${esc(name)}</div></div></td>
-                <td>
-                  <span style="font-weight:600">${s.run_count_24h}</span>
-                </td>
-                <td>
-                  <span class="status-badge ${rate >= 90 ? 's-success' : 's-failure'}">${rate}%</span>
-                </td>
-                <td>
-                  <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">Activity (24h)</div>
-                  <div class="spark-wrap" title="Hourly run density: Left (24h ago) to Right (Now)">
-                    ${(s.hourly_runs || []).map(count => {
-                      const height = count === 0 ? 1 : Math.min(24, count * 4);
-                      return `<div class="spark-bar ${count>0?'active':''}" style="height:${height}px"></div>`;
-                    }).join('')}
-                  </div>
-                </td>
-                <td>
-                  <div class="history-dots">
-                    ${(s.last_runs || []).reverse().slice(-10).map(r => `
-                      <a href="${r.display_url}" target="_blank" class="h-dot h-${r.status === 'in_progress' ? 'running' : (r.conclusion || 'none')}" title="${r.relative_time}: ${r.conclusion || r.status}"></a>
-                    `).join('')}
-                  </div>
-                </td>
+                <td><span class="status-badge ${rate >= 90 ? 's-success' : 's-failure'}">${rate}%</span></td>
+                <td>${enabled_schedule ? esc(cron) : '<span style="color:var(--text-muted)">—</span>'}</td>
+                <td>${esc(branch)}</td>
                 <td style="white-space:nowrap"><button class="btn btn-xs btn-primary" onclick="triggerOne('${esc(s.repo)}',${s.workflow_id})">Run</button></td>
               </tr>`;
           }).join('')}
