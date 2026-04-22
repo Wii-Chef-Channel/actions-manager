@@ -692,21 +692,22 @@ def scheduler_stats():
     repos_config = cfg.get("repos", {})
     org = cfg.get("org") or ORG_NAME
     
-    # Identify all scheduled workflows
+    # Identify all configured workflows (include disabled ones so they stay visible in performance table)
     scheduled_items = []
     for rname, rcfg in repos_config.items():
         wfs = rcfg.get("workflows", {})
         for wid, wcfg in wfs.items():
-            if wcfg.get("enabled_schedule"):
+            if wcfg.get("cron"):  # any cron value means it's configured (even "disabled")
                 scheduled_items.append({
                     "repo": rname,
                     "workflow_id": wid,
                     "cron": wcfg.get("cron"),
-                    "branch": wcfg.get("branch") or "main"
+                    "branch": wcfg.get("branch") or "main",
+                    "enabled_schedule": wcfg.get("enabled_schedule", False)
                 })
 
     if not scheduled_items:
-        return jsonify({"stats": [], "summary": {"total_runs_24h": 0, "success_rate_24h": 0, "total_scheduled": 0}})
+        return jsonify({"stats": [], "summary": {"total_runs_24h": 0, "success_rate_24h": 0, "total_scheduled": len([w for r in repos_config.values() for w in r.get("workflows", {}).values() if w.get("enabled_schedule")])}})
 
     now = datetime.now(timezone.utc)
     since = (now - timedelta(hours=24)).isoformat().replace("+00:00", "Z")
@@ -741,6 +742,7 @@ def scheduler_stats():
             return {
                 "repo": rname,
                 "workflow_id": wid,
+                "enabled_schedule": item.get("enabled_schedule", False),
                 "run_count_24h": run_count,
                 "success_count_24h": success_count,
                 "failure_count_24h": failure_count,
@@ -752,6 +754,7 @@ def scheduler_stats():
             return {
                 "repo": rname,
                 "workflow_id": wid,
+                "enabled_schedule": item.get("enabled_schedule", False),
                 "run_count_24h": 0,
                 "success_count_24h": 0,
                 "failure_count_24h": 0,
@@ -766,7 +769,7 @@ def scheduler_stats():
     total_failures = sum(r["failure_count_24h"] for r in results)
 
     summary = {
-        "total_scheduled": len(scheduled_items),
+        "total_scheduled": len([i for i in scheduled_items if i.get("enabled_schedule")]),
         "total_runs_24h": total_runs,
         "success_rate_24h": round((total_success / total_runs * 100), 1) if total_runs > 0 else 0,
         "failure_count_24h": total_failures

@@ -1540,15 +1540,15 @@ async function renderDashboard() {
                 const branchOptions = repoBranches.length 
                   ? repoBranches.map(br => `<option value="${esc(br)}"${br===wfBranch?' selected':''}>${esc(br)}</option>`).join('')
                   : `<option value="${esc(wfBranch)}">${esc(wfBranch)}</option>`;
-                return `<tr>
+                return `<tr style="${!s.enabled_schedule ? 'opacity:0.5' : ''}">
                   <td style="font-weight:600;color:var(--primary);white-space:nowrap">${esc(s.repo)}</td>
-                  <td><div class="wf-info"><div class="wf-title">${esc(name)}</div></div></td>
+                  <td><div class="wf-info"><div class="wf-title">${esc(name)}${!s.enabled_schedule ? ' <span style="color:var(--text-dim);font-size:11px;font-weight:400">(disabled)</span>' : ''}</div></div></td>
                   <td style="text-align:center;font-weight:600">${s.run_count_24h}</td>
                   <td style="text-align:center"><span class="status-badge ${rate>=90?'s-success':'s-failure'}">${rate}%</span></td>
                   <td><div class="spark-wrap">${(s.hourly_runs||[]).map(c => `<div class="spark-bar ${c>0?'active':''}" style="height:${c===0?1:Math.min(28,c*4)}px"></div>`).join('')}</div></td>
                   <td><div class="history-dots">${(s.last_runs||[]).reverse().slice(-10).map(r => `<a href="${r.display_url}" target="_blank" class="h-dot h-${r.status==='in_progress'?'running':(r.conclusion||'none')}" title="${r.relative_time}: ${r.conclusion||r.status}"></a>`).join('')}</div></td>
-                  <td style="text-align:center"><select class="ctrl-select" style="width:90px" onchange="updateFreq('${esc(s.repo)}',${wf?.id},this)">${freqOptions(key)}</select></td>
-                  <td style="text-align:center"><select class="ctrl-select" style="width:90px" onchange="updateBranch('${esc(s.repo)}',${wf?.id},this.value)">${branchOptions}</select></td>
+                  <td style="text-align:center"><select class="ctrl-select" style="width:110px" onchange="updateFreq('${esc(s.repo)}',${wf?.id},this)">${freqOptions(key)}</select></td>
+                  <td style="text-align:center"><select class="ctrl-select" style="width:110px" onchange="updateBranch('${esc(s.repo)}',${wf?.id},this.value)">${branchOptions}</select></td>
                   <td style="text-align:center"><button class="btn btn-xs btn-primary" onclick="triggerOne('${esc(s.repo)}',${wf?.id})">▶ Run</button></td>
                 </tr>`;
               }).join('')}
