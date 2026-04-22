@@ -1509,34 +1509,6 @@ async function renderDashboard() {
         </div>
       </div>` : ''}
 
-      <!-- Recent activity feed -->
-      ${allRecentRuns.length > 0 ? `
-      <div class="dash-section">
-        <div class="dash-section-header">
-          <div>
-            <div class="dash-section-title">Recent Activity</div>
-            <div class="dash-section-subtitle">Latest workflow executions across all repos</div>
-          </div>
-        </div>
-        <div class="dash-section-body" style="padding:8px;">
-          <div class="activity-feed">
-            ${allRecentRuns.slice(0, 20).map(r => {
-              const iconCls = r.status==='in_progress'?'running' : (r.conclusion==='success'?'success':'failure');
-              const icon = r.status==='in_progress'?'▶' : (r.conclusion==='success'?'✓':'✗');
-              return `
-              <div class="activity-item">
-                <div class="activity-icon ${iconCls}">${icon}</div>
-                <div class="activity-info">
-                  <div class="activity-title"><a href="${r.display_url}" target="_blank" style="color:inherit;text-decoration:none;">${esc(r.workflow_name)}</a></div>
-                  <div class="activity-meta">${esc(r.repo)} · ${r.conclusion || r.status}</div>
-                </div>
-                <div class="activity-time">${esc(r.relative_time||'')}</div>
-              </div>`;
-            }).join('')}
-          </div>
-        </div>
-      </div>` : ''}
-
       <!-- Performance table -->
       ${stats.length > 0 ? `
       <div class="dash-section">
@@ -1575,6 +1547,34 @@ async function renderDashboard() {
         </div>
       </div>` : `
       <div class="no-data-msg">No workflow data available yet. Enable the scheduler and configure schedules to see metrics here.</div>`}
+
+      <!-- Recent activity feed -->
+      ${allRecentRuns.length > 0 ? `
+      <div class="dash-section">
+        <div class="dash-section-header">
+          <div>
+            <div class="dash-section-title">Recent Activity</div>
+            <div class="dash-section-subtitle">Latest workflow executions across all repos</div>
+          </div>
+        </div>
+        <div class="dash-section-body" style="padding:8px;">
+          <div class="activity-feed">
+            ${allRecentRuns.slice(0, 20).map(r => {
+              const iconCls = r.status==='in_progress'?'running' : (r.conclusion==='success'?'success':'failure');
+              const icon = r.status==='in_progress'?'▶' : (r.conclusion==='success'?'✓':'✗');
+              return `
+              <div class="activity-item">
+                <div class="activity-icon ${iconCls}">${icon}</div>
+                <div class="activity-info">
+                  <div class="activity-title"><a href="${r.display_url}" target="_blank" style="color:inherit;text-decoration:none;">${esc(r.workflow_name)}</a></div>
+                  <div class="activity-meta">${esc(r.repo)} · ${r.conclusion || r.status}</div>
+                </div>
+                <div class="activity-time">${esc(r.relative_time||'')}</div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      </div>` : ''}
     `;
   } catch(e) {
     body.innerHTML = `<div class="empty"><p style="color:var(--failure)">Error loading dashboard: ${esc(e.message)}</p></div>`;
