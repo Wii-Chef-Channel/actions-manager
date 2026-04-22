@@ -795,7 +795,7 @@ async function loadRepos() {
 
     renderRepos();
 
-    if (state.activeRepo) {
+    if (state.activeRepo && state.activeRepo !== '_dashboard') {
       const still = state.repos.find(r => r.name === state.activeRepo);
       if (!still) {
         state.activeRepo = null;
