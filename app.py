@@ -665,6 +665,26 @@ def config():
     })
 
 
+@app.route("/api/config/reset", methods=["POST"])
+def config_reset():
+    """Clear repo configs while preserving global settings."""
+    cfg = _load_config()
+    # Preserve global settings, wipe repos
+    preserved = {
+        "github_pat": cfg.get("github_pat"),
+        "org": cfg.get("org"),
+        "refresh_interval": cfg.get("refresh_interval"),
+        "timezone": cfg.get("timezone"),
+        "_scheduler": cfg.get("_scheduler"),
+    }
+    cfg = preserved
+    _atomic_write(CONFIG_PATH, cfg)
+    with _cache_lock:
+        _cache.clear()
+    _invalidate_pat_cache()
+    return jsonify({"message": "Repo config cleared"})
+
+
 @app.route("/api/scheduler/stats")
 def scheduler_stats():
     """Get run statistics for all scheduled workflows in the last 24 hours."""

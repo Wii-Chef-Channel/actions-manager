@@ -649,6 +649,7 @@ body {
 
     </div>
     <div class="modal-foot">
+      <button class="btn btn-danger" onclick="resetConfig()" style="margin-right:auto">Reset Config</button>
       <button class="btn" onclick="closeConfig()">Cancel</button>
       <button class="btn btn-primary" id="cfg-save-btn" onclick="saveConfig()">Save</button>
     </div>
@@ -1558,6 +1559,21 @@ async function openConfig() {
 function closeConfig() {
   document.getElementById('config-modal').classList.remove('open');
   _repoVisEdits = {};
+}
+
+async function resetConfig() {
+  if (!confirm('This will clear all repo configs (including hidden/enabled/workflow settings). Global settings (timezone, refresh, PAT) will be kept. Continue?')) {
+    return;
+  }
+  try {
+    await api('/api/config/reset', { method: 'POST' });
+    toast('Repo config cleared', 'success');
+    closeConfig();
+    await loadRepos();
+    if (state.activeRepo) loadWorkflows(state.activeRepo);
+  } catch(e) {
+    toast(e.message, 'error');
+  }
 }
 
 async function saveConfig() {
