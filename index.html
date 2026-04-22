@@ -1486,7 +1486,7 @@ async function renderDashboard() {
         </div>
         <div class="stat-card">
           <span class="stat-label">Failures (24h)</span>
-          <span class="stat-value" style="color:${(summary.total_runs_24h - summary.success_count_24h) > 0 ? 'var(--failure)' : 'var(--text)'}">${summary.total_runs_24h - summary.success_count_24h}</span>
+          <span class="stat-value" style="color:${((summary.total_runs_24h||0) - (summary.success_count_24h||0)) > 0 ? 'var(--failure)' : 'var(--text)'}">${(summary.total_runs_24h||0) - (summary.success_count_24h||0)}</span>
           <span class="stat-trend">Failed executions</span>
         </div>
       </div>
