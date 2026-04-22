@@ -1835,9 +1835,10 @@ async function updateFreq(repoName, wfId, el) {
   const wf = wfs.find(w => w.id === wfId); if (!wf) return;
   wf.cron = val === 'disabled' ? 'disabled' : FREQ_MAP[val];
   wf.enabled_schedule = val !== 'disabled';
-  renderWorkflows(repoName);
   updateSidebarStatus();
-  if (state.activeRepo === '_dashboard') renderDashboard();
+  // Only re-render the active view, don't switch away from dashboard
+  if (state.activeRepo === repoName) renderWorkflows(repoName);
+  else if (state.activeRepo === '_dashboard') renderDashboard();
   await _saveFreqAndShow(repoName, wf);
 }
 
@@ -1858,7 +1859,9 @@ async function updateBranch(repoName, wfId, branch) {
     await saveWfConfig(repoName, wfId, { enabled_schedule: wf.enabled_schedule, cron: wf.cron, branch });
     flashSaved(`si-branch-${wfId}`);
     renderRepos();
-    if (state.activeRepo === '_dashboard') renderDashboard();
+    // Only re-render the active view, don't switch away from dashboard
+    if (state.activeRepo === repoName) renderWorkflows(repoName);
+    else if (state.activeRepo === '_dashboard') renderDashboard();
   } catch(e) { toast('Save failed: ' + e.message, 'error'); }
 }
 
