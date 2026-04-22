@@ -1441,11 +1441,15 @@ async function renderDashboard() {
   document.getElementById('content-subtitle').textContent = 'Performance metrics and activity across all workflows';
   document.getElementById('content-header-right').innerHTML = '';
 
-  body.innerHTML = `
-    <div class="empty" style="height:300px">
-      <div class="spinner"></div>
-      <p>Loading dashboard data...</p>
-    </div>`;
+  // Only show loading spinner on initial load (no existing content)
+  const isInitialLoad = !body.innerHTML.trim();
+  if (isInitialLoad) {
+    body.innerHTML = `
+      <div class="empty" style="height:300px">
+        <div class="spinner"></div>
+        <p>Loading dashboard data...</p>
+      </div>`;
+  }
 
   try {
     const data = await api('/api/scheduler/stats');
