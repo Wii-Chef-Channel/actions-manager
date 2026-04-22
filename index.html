@@ -456,7 +456,7 @@ body {
   grid-template-columns: auto 1fr auto auto;
   grid-template-rows: auto auto;
   gap: 8px 20px;
-  align-items: center;
+  align-items: start;
   transition: all 0.15s;
 }
 .wf-card:hover {
@@ -465,13 +465,13 @@ body {
 }
 
 /* Card row 1: checkbox, name+path, status, run button */
-.wf-card-check { grid-column: 1; grid-row: 1; }
-.wf-card-info { grid-column: 2; grid-row: 1 / span 2; }
-.wf-card-status { grid-column: 3; grid-row: 1; text-align: right; }
-.wf-card-run { grid-column: 4; grid-row: 1; text-align: right; }
+.wf-card-check { grid-column: 1; grid-row: 1; align-self: center; }
+.wf-card-info { grid-column: 2; grid-row: 1; align-self: center; }
+.wf-card-status { grid-column: 3; grid-row: 1; text-align: right; align-self: center; }
+.wf-card-run { grid-column: 4; grid-row: 1; text-align: right; align-self: center; }
 
-/* Card row 2: schedule controls */
-.wf-card-controls { grid-column: 3 / span 2; grid-row: 2; text-align: right; display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
+/* Card row 2: controls spanning full width */
+.wf-card-controls { grid-column: 1 / -1; grid-row: 2; display: flex; align-items: center; gap: 20px; justify-content: flex-end; padding-top: 8px; border-top: 1px solid var(--border-light); margin-top: 4px; }
 
 .wf-card-title {
   font-size: 14px;
@@ -495,6 +495,7 @@ body {
   align-items: center;
   gap: 6px;
 }
+.wf-card-controls .ctrl-group select.ctrl-select { width: 100px; }
 .wf-card-controls label {
   font-size: 11px;
   color: var(--text-dim);
@@ -1699,10 +1700,10 @@ function renderWorkflows(repoName) {
   if (state.viewMode === 'table') {
     // Table view (compact, for power users)
     body.innerHTML = `
-<table class="wf-table">
+<table class="wf-table" style="table-layout:fixed">
   <thead><tr>
-    <th style="width:36px"><input type="checkbox" id="sel-all" onchange="toggleSelectAll(this)" title="Select all"></th>
-    <th>Workflow</th><th>Status</th><th>Last run</th><th>Schedule</th><th>Frequency</th><th>Branch</th><th style="width:80px">Actions</th>
+    <th style="width:40px"><input type="checkbox" id="sel-all" onchange="toggleSelectAll(this)" title="Select all"></th>
+    <th style="width:25%">Workflow</th><th style="width:12%">Status</th><th style="width:16%">Last run</th><th style="width:8%">Schedule</th><th style="width:14%">Frequency</th><th style="width:13%">Branch</th><th style="width:70px">Actions</th>
   </tr></thead>
   <tbody>
     ${wfs.map(wf => {
@@ -1716,12 +1717,12 @@ function renderWorkflows(repoName) {
             <div class="wf-path">${esc(wf.path)}</div>
           </div>
         </td>
-        <td>${statusBadge(wf.last_run)}</td>
+        <td style="text-align:center">${statusBadge(wf.last_run)}</td>
         <td style="white-space:nowrap;font-size:12px;color:var(--text-muted)">${wf.last_run ? `${wf.last_run.relative_time}<br><span style="font-size:11px">${wf.last_run.display_time}</span>` : '<span class="s-none">never</span>'}</td>
-        <td><div class="toggle ${wf.enabled_schedule?'on':''}" onclick="toggleSchedule('${esc(repoName)}',${wf.id},this)" title="${wf.enabled_schedule?'Disable':'Enable'} schedule"></div></td>
-        <td style="white-space:nowrap"><select class="ctrl-select" style="width:130px" onchange="updateFreq('${esc(repoName)}',${wf.id},this)">${freqOptions(key)}</select><span class="save-indicator" id="si-freq-${wf.id}">✓ saved</span></td>
-        <td><select class="ctrl-select" onchange="updateBranch('${esc(repoName)}',${wf.id},this.value)">${branchOpts(wf.branch)}</select><span class="save-indicator" id="si-branch-${wf.id}">✓ saved</span></td>
-        <td><button class="btn btn-sm btn-primary" onclick="triggerOne('${esc(repoName)}',${wf.id})" ${disabled?'disabled':''}>▶ Run</button></td>
+        <td style="text-align:center"><div class="toggle ${wf.enabled_schedule?'on':''}" onclick="toggleSchedule('${esc(repoName)}',${wf.id},this)" title="${wf.enabled_schedule?'Disable':'Enable'} schedule"></div></td>
+        <td style="text-align:center"><select class="ctrl-select" style="width:110px" onchange="updateFreq('${esc(repoName)}',${wf.id},this)">${freqOptions(key)}</select><span class="save-indicator" id="si-freq-${wf.id}">✓ saved</span></td>
+        <td style="text-align:center"><select class="ctrl-select" style="width:100px" onchange="updateBranch('${esc(repoName)}',${wf.id},this.value)">${branchOpts(wf.branch)}</select><span class="save-indicator" id="si-branch-${wf.id}">✓ saved</span></td>
+        <td style="text-align:center"><button class="btn btn-sm btn-primary" onclick="triggerOne('${esc(repoName)}',${wf.id})" ${disabled?'disabled':''}>▶ Run</button></td>
       </tr>`;
     }).join('')}
   </tbody>
@@ -1756,7 +1757,7 @@ function renderWorkflows(repoName) {
           </div>
           <div class="ctrl-group">
             <label>Every</label>
-            <select class="ctrl-select" style="width:130px" onchange="updateFreq('${esc(repoName)}',${wf.id},this)">${freqOptions(key)}</select>
+            <select class="ctrl-select" onchange="updateFreq('${esc(repoName)}',${wf.id},this)">${freqOptions(key)}</select>
             <span class="save-indicator" id="si-freq-${wf.id}">✓ saved</span>
           </div>
           <div class="ctrl-group">
