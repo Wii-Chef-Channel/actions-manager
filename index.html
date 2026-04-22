@@ -406,6 +406,13 @@ body {
 .cfg-row { display: flex; gap: 14px; }
 .cfg-field { margin-bottom: 14px; flex: 1; }
 .cfg-field:last-child { margin-bottom: 0; }
+.cfg-repo-vis-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; border-radius: 6px;
+}
+.cfg-repo-vis-row:hover { background: var(--bg-hover); }
+.cfg-repo-vis-chk { width: 14px; height: 14px; cursor: pointer; }
+.cfg-repo-vis-label { font-size: 13px; color: var(--text); cursor: pointer; }
 .cfg-field label {
   display: block; font-size: 12px; font-weight: 500;
   color: var(--text-muted); margin-bottom: 5px;
@@ -569,6 +576,7 @@ body {
   <div class="sidebar">
     <div class="sidebar-header">
       <h2>Repositories</h2>
+      <button class="btn btn-xs" id="show-hidden-btn" onclick="toggleShowHidden()" title="Show hidden repos" style="opacity:0.5">👁 Hidden</button>
     </div>
     <div class="sidebar-body" id="repo-list">
       <div class="empty"><div class="spinner"></div></div>
@@ -634,6 +642,11 @@ body {
         </div>
       </section>
 
+      <section class="cfg-section">
+        <div class="cfg-section-title">Repo Visibility</div>
+        <div id="cfg-repo-visibility" style="max-height:300px;overflow-y:auto;"></div>
+      </section>
+
     </div>
     <div class="modal-foot">
       <button class="btn" onclick="closeConfig()">Cancel</button>
@@ -657,6 +670,7 @@ const state = {
   refreshInterval: 30,
   refreshTimer: null,
   schedulerOn: false,
+  showHidden: false,
 };
 
 // ─────────────────────────────────────────────
@@ -685,6 +699,7 @@ function loadPersistentState() {
 
 // Scheduler state is tracked authoritatively here, not read from DOM
 let _schedulerOn = false;
+let _repoVisEdits = {};
 
 // ─────────────────────────────────────────────
 // Frequency maps
@@ -820,7 +835,12 @@ async function loadWorkflowsForSidebar(repoName) {
 
 function renderRepos() {
   const el = document.getElementById('repo-list');
-  const reposHtml = state.repos.map(repo => {
+  // Filter out hidden repos
+  const visibleRepos = state.repos.filter(r => !r.hidden);
+  const hiddenRepos = state.repos.filter(r => r.hidden);
+  const hiddenReposHtml = getHiddenReposHtml();
+
+  const reposHtml = visibleRepos.map(repo => {
     const open = state.expanded.has(repo.name);
     const active = state.activeRepo === repo.name;
     const wfs = state.workflows[repo.name];
@@ -868,8 +888,38 @@ function renderRepos() {
       </div>
     </div>
     <div style="height:1px; background:var(--border); margin:4px 10px"></div>
-    ${state.repos.length ? reposHtml : '<div class="empty"><p>No repos found.</p></div>'}
+    ${visibleRepos.length ? reposHtml : '<div class="empty"><p>No repos found.</p></div>'}
+    ${hiddenRepos.length && state.showHidden ? '<div style="height:1px; background:var(--border); margin:4px 10px"></div>' + hiddenReposHtml : ''}
   `;
+}
+
+function getHiddenReposHtml() {
+  return state.repos.filter(r => r.hidden).map(repo => {
+    const open = state.expanded.has(repo.name);
+    const active = state.activeRepo === repo.name;
+    const wfs = state.workflows[repo.name];
+    const isLoaded = wfs !== undefined;
+    return `
+<div class="repo-item">
+  <div class="repo-header ${active?'active':''}" onclick="selectRepo('${esc(repo.name)}')" style="opacity:0.5">
+    <span class="repo-chevron ${open?'open':''}">▶</span>
+    <span class="repo-name">${esc(repo.name)}</span>
+    <span class="repo-meta">
+      <span class="repo-count" title="Hidden from dashboard">👁</span>
+      ${isLoaded && wfs?.length ? `<span class="repo-count">${wfs.length}</span>` : ''}
+    </span>
+  </div>
+  <div class="repo-children ${open?'open':''}">
+    ${isLoaded && wfs?.length ? wfs.map(wf => `
+      <div class="wf-row-mini">
+        <span class="run-dot" style="background:${runDotColor(wf.last_run?.conclusion, wf.last_run?.status)}"></span>
+        <span class="wf-mini-name" title="${esc(wf.name)}">${esc(wf.name)}</span>
+        <div class="mini-toggle ${wf.enabled_schedule?'on':''}" onclick="event.stopPropagation();quickToggleSchedule('${esc(repo.name)}',${wf.id})" title="${wf.enabled_schedule?'Disable':'Enable'} schedule"></div>
+      </div>
+    `).join('') : ''}
+  </div>
+</div>`;
+  }).join('');
 }
 
 function selectOverview() {
@@ -884,6 +934,22 @@ function selectDashboard() {
   saveState();
   renderRepos();
   renderDashboard();
+}
+
+function toggleShowHidden() {
+  state.showHidden = !state.showHidden;
+  const btn = document.getElementById('show-hidden-btn');
+  if (btn) btn.style.opacity = state.showHidden ? '1' : '0.5';
+  renderRepos();
+}
+
+function onRepoVisToggle(el) {
+  const repoName = el.dataset.repo;
+  if (el.checked) {
+    _repoVisEdits[repoName] = true;
+  } else {
+    _repoVisEdits[repoName] = false;
+  }
 }
 
 function getLineColor(i) {
@@ -1471,10 +1537,27 @@ async function openConfig() {
   document.getElementById('cfg-refresh').value = cfgData.refresh_interval || 30;
   document.getElementById('cfg-timezone').value = cfgData.timezone || 'UTC';
   updateSchedulerUI(schedData.running);
+
+  // Populate repo visibility list
+  const reposCfg = cfgData.repos || {};
+  const visEl = document.getElementById('cfg-repo-visibility');
+  if (state.repos.length) {
+    visEl.innerHTML = state.repos.map(repo => {
+      const repoHidden = reposCfg[repo.name]?.hidden === true;
+      return `
+<div class="cfg-repo-vis-row">
+  <input type="checkbox" class="cfg-repo-vis-chk" data-repo="${esc(repo.name)}" ${repoHidden?'checked':''} onchange="onRepoVisToggle(this)">
+  <label class="cfg-repo-vis-label">${esc(repo.name)}</label>
+</div>`;
+    }).join('');
+  } else {
+    visEl.innerHTML = '<div class="cfg-hint">No repos loaded yet.</div>';
+  }
 }
 
 function closeConfig() {
   document.getElementById('config-modal').classList.remove('open');
+  _repoVisEdits = {};
 }
 
 async function saveConfig() {
@@ -1489,6 +1572,15 @@ async function saveConfig() {
     };
     const pat = document.getElementById('cfg-pat').value.trim();
     if (pat) body.github_pat = pat;
+
+    // Include repo visibility edits
+    if (Object.keys(_repoVisEdits).length) {
+      if (!body.repos) body.repos = {};
+      for (const repoName of Object.keys(_repoVisEdits)) {
+        if (!body.repos[repoName]) body.repos[repoName] = {};
+        body.repos[repoName].hidden = _repoVisEdits[repoName];
+      }
+    }
 
     await api('/api/config', { method: 'POST', body: JSON.stringify(body) });
     toast('Configuration saved', 'success');

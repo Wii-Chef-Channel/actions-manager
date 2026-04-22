@@ -374,6 +374,7 @@ def get_repos():
         key = r["name"]
         repo_cfg = repos_config.get(key) or {}
         enabled = repo_cfg.get("enabled", True)
+        hidden = repo_cfg.get("hidden", False)
         workflows = repo_cfg.get("workflows") or {}
         schedule_enabled = any(
             isinstance(wf, dict) and wf.get("enabled_schedule", False)
@@ -384,6 +385,7 @@ def get_repos():
             "full_name": r["full_name"],
             "default_branch": r.get("default_branch", "main"),
             "enabled": enabled,
+            "hidden": hidden,
             "schedule_enabled": schedule_enabled,
             "private": r.get("private", True),
             "updated_at": r.get("updated_at"),
