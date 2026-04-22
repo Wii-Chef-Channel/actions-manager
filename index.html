@@ -1547,8 +1547,8 @@ async function renderDashboard() {
                   <td style="text-align:center"><span class="status-badge ${rate>=90?'s-success':'s-failure'}">${rate}%</span></td>
                   <td><div class="spark-wrap">${(s.hourly_runs||[]).map(c => `<div class="spark-bar ${c>0?'active':''}" style="height:${c===0?1:Math.min(28,c*4)}px"></div>`).join('')}</div></td>
                   <td><div class="history-dots">${(s.last_runs||[]).reverse().slice(-10).map(r => `<a href="${r.display_url}" target="_blank" class="h-dot h-${r.status==='in_progress'?'running':(r.conclusion||'none')}" title="${r.relative_time}: ${r.conclusion||r.status}"></a>`).join('')}</div></td>
-                  <td style="text-align:center;white-space:nowrap"><select class="ctrl-select" style="width:130px" onchange="updateFreq('${esc(s.repo)}',${wf?.id},this)">${freqOptions(key)}</select><span class="save-indicator" id="si-freq-${s.workflow_id}">✓ saved</span></td>
-                  <td style="text-align:center;white-space:nowrap"><select class="ctrl-select" style="width:120px" onchange="updateBranch('${esc(s.repo)}',${wf?.id},this.value)">${branchOptions}</select><span class="save-indicator" id="si-branch-${s.workflow_id}">✓ saved</span></td>
+                  <td style="text-align:center;white-space:nowrap"><div style="display:flex;justify-content:center;gap:4px;align-items:center"><select class="ctrl-select" style="width:130px" onchange="updateFreq('${esc(s.repo)}',${wf?.id},this)">${freqOptions(key)}</select><span class="save-indicator" id="si-freq-${s.workflow_id}">✓ saved</span></div></td>
+                  <td style="text-align:center;white-space:nowrap"><div style="display:flex;justify-content:center;gap:4px;align-items:center"><select class="ctrl-select" style="width:130px" onchange="updateBranch('${esc(s.repo)}',${wf?.id},this.value)">${branchOptions}</select><span class="save-indicator" id="si-branch-${s.workflow_id}">✓ saved</span></div></td>
                   <td style="text-align:center"><button class="btn btn-xs btn-primary" onclick="triggerOne('${esc(s.repo)}',${wf?.id})">▶ Run</button></td>
                 </tr>`;
               }).join('')}
