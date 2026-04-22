@@ -1071,7 +1071,6 @@ async function renderDashboard() {
                 <td><div class="wf-info"><div class="wf-title">${esc(name)}</div></div></td>
                 <td>
                   <span style="font-weight:600">${s.run_count_24h}</span>
-                  <span style="font-size:11px;color:var(--text-muted)"> (${s.success_count_24h} ok)</span>
                 </td>
                 <td>
                   <span class="status-badge ${rate >= 90 ? 's-success' : 's-failure'}">${rate}%</span>
