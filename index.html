@@ -1337,6 +1337,7 @@ async function updateFreq(repoName, wfId, el) {
   }
 
   renderWorkflows(repoName);
+  if (state.activeRepo === '_dashboard') renderDashboard();
   await _saveFreqAndShow(repoName, wf);
 }
 
@@ -1345,6 +1346,7 @@ async function _saveFreqAndShow(repoName, wf) {
     await saveWfConfig(repoName, wf.id, { enabled_schedule: wf.enabled_schedule, cron: wf.cron, branch: wf.branch });
     flashSaved(`si-freq-${wf.id}`);
     renderRepos();
+    if (state.activeRepo === '_dashboard') renderDashboard();
   } catch(e) {
     toast('Save failed: ' + e.message, 'error');
   }
@@ -1362,6 +1364,8 @@ async function updateBranch(repoName, wfId, branch) {
   try {
     await saveWfConfig(repoName, wfId, { enabled_schedule: wf.enabled_schedule, cron: wf.cron, branch });
     flashSaved(`si-branch-${wfId}`);
+    renderRepos();
+    if (state.activeRepo === '_dashboard') renderDashboard();
   } catch(e) {
     toast('Save failed: ' + e.message, 'error');
   }
