@@ -1086,26 +1086,27 @@ async function renderDashboard() {
       </table>
     `;
 
-  // Populate scheduled overview after table
-  const overviewEl = document.getElementById('scheduled-overview');
-  if (overviewEl) {
-    const scheduled = [];
-    state.repos.forEach(repo => {
-      const wfs = state.workflows[repo.name] || [];
-      wfs.forEach(wf => {
-        if (wf.enabled_schedule) {
-          scheduled.push({ repo: repo.name, wf });
-        }
+    // Populate scheduled overview after table
+    const overviewEl = document.getElementById('scheduled-overview');
+    if (overviewEl) {
+      const scheduled = [];
+      state.repos.forEach(repo => {
+        const wfs = state.workflows[repo.name] || [];
+        wfs.forEach(wf => {
+          if (wf.enabled_schedule) {
+            scheduled.push({ repo: repo.name, wf });
+          }
+        });
       });
-    });
-    if (!scheduled.length) {
-      overviewEl.innerHTML = '<div class="empty"><p>No workflows have active schedules.</p></div>';
-    } else {
-      overviewEl.innerHTML = `<table class="wf-table"><thead><tr><th>Repository</th><th>Workflow</th><th>Status</th><th>Frequency</th><th>Branch</th><th>Actions</th></tr></thead><tbody>${scheduled.map(({repo, wf}) => `<tr><td style="font-weight:600;color:var(--primary)">${esc(repo)}</td><td><div class="wf-info"><div class="wf-title"><a href="${wf.last_run?.display_url||'#'}" target="_blank" style="color:inherit;text-decoration:none;">${esc(wf.name)}</a></div></div></td><td>${statusBadge(wf.last_run)}</td><td>${esc(cronToKey(wf.cron))}</td><td>${esc(wf.branch || 'main')}</td><td><button class="btn btn-xs btn-primary" onclick="triggerOne('${esc(repo)}',${wf.id})">Run</button><button class="btn btn-xs btn-danger" style="margin-left:4px" onclick="quickToggleSchedule('${esc(repo)}',${wf.id})">Disable</button></td></tr>`).join('')}</tbody></table>`;
+      if (!scheduled.length) {
+        overviewEl.innerHTML = '<div class="empty"><p>No workflows have active schedules.</p></div>';
+      } else {
+        overviewEl.innerHTML = `<table class="wf-table"><thead><tr><th>Repository</th><th>Workflow</th><th>Status</th><th>Frequency</th><th>Branch</th><th>Actions</th></tr></thead><tbody>${scheduled.map(({repo, wf}) => `<tr><td style="font-weight:600;color:var(--primary)">${esc(repo)}</td><td><div class="wf-info"><div class="wf-title"><a href="${wf.last_run?.display_url||'#'}" target="_blank" style="color:inherit;text-decoration:none;">${esc(wf.name)}</a></div></div></td><td>${statusBadge(wf.last_run)}</td><td>${esc(cronToKey(wf.cron))}</td><td>${esc(wf.branch || 'main')}</td><td><button class="btn btn-xs btn-primary" onclick="triggerOne('${esc(repo)}',${wf.id})">Run</button><button class="btn btn-xs btn-danger" style="margin-left:4px" onclick="quickToggleSchedule('${esc(repo)}',${wf.id})">Disable</button></td></tr>`).join('')}</tbody></table>`;
+      }
     }
+  } catch(e) {
+    body.innerHTML = `<div class="empty"><p style="color:var(--failure)">Error fetching dashboard: ${e.message}</p></div>`;
   }
-} catch(e) {
-  body.innerHTML = `<div class="empty"><p style="color:var(--failure)">Error fetching dashboard: ${e.message}</p></div>`;
 }
 
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
