@@ -484,7 +484,7 @@ body {
 .trend-up { color: var(--success); }
 .trend-down { color: var(--failure); }
 
-.history-dots { display: flex; gap: 3px; margin-top: 6px; }
+.history-dots { display: flex; gap: 3px; margin-top: 6px; justify-content: center; flex-wrap: wrap; max-width: 100%; }
 .h-dot { width: 8px; height: 8px; border-radius: 2px; background: var(--disabled); display: block; }
 .h-success { background: var(--success); }
 .h-failure { background: var(--failure); }
@@ -526,7 +526,9 @@ body {
   align-items: flex-end;
   gap: 2px;
   height: 24px;
-  width: 120px;
+  width: 100%;
+  max-width: 160px;
+  margin: 0 auto;
   padding: 2px 0;
 }
 .spark-bar {
