@@ -1315,6 +1315,7 @@ async function quickToggleSchedule(repoName, wfId) {
   }
   renderRepos();
   if (state.activeRepo === repoName) renderWorkflows(repoName);
+  if (state.activeRepo === '_dashboard') renderDashboard();
 }
 
 // ─────────────────────────────────────────────
