@@ -276,6 +276,34 @@ body {
 .wf-table tbody tr { transition: background 0.1s; }
 .wf-table tbody tr:hover td { background: var(--bg-hover); }
 
+/* ── Workflow Performance table column alignment ── */
+.wf-table-perf th:nth-child(1),
+.wf-table-perf td:nth-child(1) { width: 14%; text-align: left; }
+.wf-table-perf th:nth-child(2),
+.wf-table-perf td:nth-child(2) { width: 20%; text-align: left; }
+.wf-table-perf th:nth-child(3),
+.wf-table-perf td:nth-child(3) { width: 9%; text-align: center; }
+.wf-table-perf th:nth-child(4),
+.wf-table-perf td:nth-child(4) { width: 10%; text-align: center; }
+.wf-table-perf th:nth-child(5),
+.wf-table-perf td:nth-child(5) { width: 28%; text-align: center; }
+.wf-table-perf th:nth-child(6),
+.wf-table-perf td:nth-child(6) { width: 19%; text-align: center; }
+
+/* ── Scheduled Workflows table column alignment ── */
+.wf-table-scheduled th:nth-child(1),
+.wf-table-scheduled td:nth-child(1) { width: 14%; text-align: left; }
+.wf-table-scheduled th:nth-child(2),
+.wf-table-scheduled td:nth-child(2) { width: 26%; text-align: left; }
+.wf-table-scheduled th:nth-child(3),
+.wf-table-scheduled td:nth-child(3) { width: 10%; text-align: center; }
+.wf-table-scheduled th:nth-child(4),
+.wf-table-scheduled td:nth-child(4) { width: 16%; text-align: center; }
+.wf-table-scheduled th:nth-child(5),
+.wf-table-scheduled td:nth-child(5) { width: 10%; text-align: center; }
+.wf-table-scheduled th:nth-child(6),
+.wf-table-scheduled td:nth-child(6) { width: 24%; text-align: center; }
+
 .wf-info .wf-title { font-weight: 500; font-size: 13px; }
 .wf-info .wf-path { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
 
@@ -1034,7 +1062,7 @@ async function renderDashboard() {
       </div>
 
       <div class="cfg-section-title">Workflow Performance</div>
-      <table class="wf-table">
+      <table class="wf-table wf-table-perf">
         <thead>
           <tr>
             <th>Repository</th>
@@ -1101,7 +1129,7 @@ async function renderDashboard() {
       if (!scheduled.length) {
         overviewEl.innerHTML = '<div class="empty"><p>No workflows have active schedules.</p></div>';
       } else {
-        overviewEl.innerHTML = `<table class="wf-table"><thead><tr><th>Repository</th><th>Workflow</th><th>Status</th><th>Frequency</th><th>Branch</th><th>Actions</th></tr></thead><tbody>${scheduled.map(({repo, wf}) => `<tr><td style="font-weight:600;color:var(--primary)">${esc(repo)}</td><td><div class="wf-info"><div class="wf-title"><a href="${wf.last_run?.display_url||'#'}" target="_blank" style="color:inherit;text-decoration:none;">${esc(wf.name)}</a></div></div></td><td>${statusBadge(wf.last_run)}</td><td>${esc(cronToKey(wf.cron))}</td><td>${esc(wf.branch || 'main')}</td><td><button class="btn btn-xs btn-primary" onclick="triggerOne('${esc(repo)}',${wf.id})">Run</button><button class="btn btn-xs btn-danger" style="margin-left:4px" onclick="quickToggleSchedule('${esc(repo)}',${wf.id})">Disable</button></td></tr>`).join('')}</tbody></table>`;
+        overviewEl.innerHTML = `<table class="wf-table wf-table-scheduled"><thead><tr><th>Repository</th><th>Workflow</th><th>Status</th><th>Frequency</th><th>Branch</th><th>Actions</th></tr></thead><tbody>${scheduled.map(({repo, wf}) => `<tr><td style="font-weight:600;color:var(--primary)">${esc(repo)}</td><td><div class="wf-info"><div class="wf-title"><a href="${wf.last_run?.display_url||'#'}" target="_blank" style="color:inherit;text-decoration:none;">${esc(wf.name)}</a></div></div></td><td>${statusBadge(wf.last_run)}</td><td>${esc(cronToKey(wf.cron))}</td><td>${esc(wf.branch || 'main')}</td><td><button class="btn btn-xs btn-primary" onclick="triggerOne('${esc(repo)}',${wf.id})">Run</button><button class="btn btn-xs btn-danger" style="margin-left:4px" onclick="quickToggleSchedule('${esc(repo)}',${wf.id})">Disable</button></td></tr>`).join('')}</tbody></table>`;
       }
     }
   } catch(e) {
