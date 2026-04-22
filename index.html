@@ -1894,7 +1894,13 @@ async function triggerOne(repoName, wfId) {
   try {
     await api(`/api/repos/${repoName}/workflows/${wfId}/trigger`, { method: 'POST', body: JSON.stringify({ branch }) });
     toast(`Triggered "${wf?.name || wfId}"`, 'success');
-    setTimeout(() => loadWorkflows(repoName), 1500);
+    // Refresh data in background without switching views
+    setTimeout(async () => {
+      const wfData = await api(`/api/repos/${repoName}/workflows`).catch(() => ({ workflows: [] }));
+      state.workflows[repoName] = wfData.workflows || [];
+      if (state.activeRepo === repoName) renderWorkflows(repoName);
+      else if (state.activeRepo === '_dashboard') renderDashboard();
+    }, 1500);
   } catch(e) {
     toast('Failed: ' + e.message, 'error');
     if (btn) { btn.disabled = false; btn.innerHTML = '▶ Run'; }
