@@ -10,18 +10,30 @@
   --bg-card: #161b22;
   --bg-hover: #1c2333;
   --bg-input: #0d1117;
+  --bg-subtle: #0d1117aa;
   --border: #30363d;
+  --border-light: #21262d;
   --text: #e6edf3;
   --text-muted: #8b949e;
+  --text-dim: #6e7681;
   --primary: #58a6ff;
   --primary-hover: #79b8ff;
+  --primary-subtle: rgba(88,166,255,0.1);
   --success: #3fb950;
+  --success-subtle: rgba(63,185,80,0.1);
   --failure: #f85149;
+  --failure-subtle: rgba(248,81,73,0.1);
+  --warning: #d29922;
+  --warning-subtle: rgba(210,153,34,0.1);
   --queued: #d29922;
   --running: #58a6ff;
   --disabled: #484f58;
   --scrollbar: #30363d;
   --scrollbar-hover: #484f58;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.3);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -32,6 +44,8 @@ body {
   color: var(--text);
   height: 100vh;
   overflow: hidden;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -39,67 +53,120 @@ body {
 ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-hover); }
 
-/* ── Header ── */
+/* ═══════════════════════════════════════════
+   HEADER
+   ═══════════════════════════════════════════ */
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
-  height: 52px;
+  padding: 0 24px;
+  height: 56px;
   background: var(--bg-card);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  gap: 16px;
 }
 .header-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  flex-shrink: 0;
 }
 .header-brand h1 {
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: -0.2px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.header-brand .logo-icon {
+  width: 28px; height: 28px;
+  background: linear-gradient(135deg, var(--primary), #a371f7);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
 }
 .header-brand .org-pill {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   background: var(--bg);
   border: 1px solid var(--border);
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: 20px;
+  font-weight: 500;
 }
-.header-actions { display: flex; align-items: center; gap: 8px; }
+
+.header-center {
+  flex: 1;
+  max-width: 400px;
+}
+.global-search {
+  width: 100%;
+  padding: 7px 12px 7px 34px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 13px;
+  transition: all 0.15s;
+}
+.global-search:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(88,166,255,0.15);
+}
+.global-search-wrap {
+  position: relative;
+}
+.global-search-icon {
+  position: absolute;
+  left: 10px; top: 50%; transform: translateY(-50%);
+  color: var(--text-dim);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
 .scheduler-badge {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 7px;
   font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 6px;
+  padding: 5px 12px;
+  border-radius: var(--radius);
   cursor: pointer;
   border: 1px solid var(--border);
   transition: all 0.15s;
   user-select: none;
   background: var(--bg);
   color: var(--text-muted);
+  font-weight: 500;
 }
 .scheduler-badge:hover { border-color: var(--text-muted); }
-.scheduler-badge.on { color: var(--success); border-color: rgba(63,185,80,0.4); background: rgba(63,185,80,0.08); }
+.scheduler-badge.on { color: var(--success); border-color: rgba(63,185,80,0.4); background: var(--success-subtle); }
 .scheduler-badge .sched-dot {
-  width: 6px; height: 6px; border-radius: 50%;
+  width: 7px; height: 7px; border-radius: 50%;
   background: var(--disabled);
+  transition: background 0.2s;
 }
-.scheduler-badge.on .sched-dot { background: var(--success); }
+.scheduler-badge.on .sched-dot { 
+  background: var(--success);
+  box-shadow: 0 0 6px rgba(63,185,80,0.5);
+}
 
-/* ── Buttons ── */
+/* ═══════════════════════════════════════════
+   BUTTONS
+   ═══════════════════════════════════════════ */
 .btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 12px;
+  gap: 6px;
+  padding: 6px 14px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: var(--bg);
   color: var(--text);
   font-size: 13px;
@@ -113,60 +180,179 @@ body {
 .btn:active { transform: scale(0.97); }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .btn-primary { background: #238636; border-color: #2ea043; color: #fff; }
-.btn-primary:hover { background: #2ea043; border-color: #3fb950; }
+.btn-primary:hover:not(:disabled) { background: #2ea043; border-color: #3fb950; }
 .btn-primary:disabled { background: #1a5c26; border-color: #1a5c26; }
-.btn-danger { background: rgba(248,81,73,0.15); border-color: rgba(248,81,73,0.4); color: var(--failure); }
-.btn-danger:hover { background: rgba(248,81,73,0.25); }
-.btn-sm { padding: 3px 10px; font-size: 12px; }
-.btn-xs { padding: 2px 7px; font-size: 11px; }
-
-/* ── Layout ── */
-.main {
-  display: flex;
-  height: calc(100vh - 52px);
+.btn-danger { background: var(--failure-subtle); border-color: rgba(248,81,73,0.4); color: var(--failure); }
+.btn-danger:hover:not(:disabled) { background: rgba(248,81,73,0.25); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-xs { padding: 3px 8px; font-size: 11px; border-radius: 6px; }
+.btn-icon {
+  width: 30px; height: 30px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
 }
 
-/* ── Sidebar ── */
+/* ═══════════════════════════════════════════
+   LAYOUT
+   ═══════════════════════════════════════════ */
+.main {
+  display: flex;
+  height: calc(100vh - 56px);
+}
+
+/* ═══════════════════════════════════════════
+   SIDEBAR
+   ═══════════════════════════════════════════ */
 .sidebar {
-  width: 280px;
-  min-width: 280px;
+  width: 300px;
+  min-width: 300px;
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   background: var(--bg-card);
 }
-.sidebar-header {
+
+/* Sidebar status summary */
+.sidebar-status {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  flex-shrink: 0;
+}
+.sidebar-stat {
+  text-align: center;
+  padding: 6px 4px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border-light);
+}
+.sidebar-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.sidebar-stat-label {
+  font-size: 9px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+.sidebar-stat.success .sidebar-stat-value { color: var(--success); }
+.sidebar-stat.failure .sidebar-stat-value { color: var(--failure); }
+.sidebar-stat.running .sidebar-stat-value { color: var(--running); }
+
+/* Sidebar search */
+.sidebar-search-wrap {
   padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sidebar-search {
+  width: 100%;
+  padding: 6px 10px 6px 30px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12px;
+  transition: all 0.15s;
+}
+.sidebar-search:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(88,166,255,0.12);
+}
+.sidebar-search-wrap { position: relative; }
+.sidebar-search-icon {
+  position: absolute;
+  left: 24px; top: 50%; transform: translateY(-50%);
+  color: var(--text-dim);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+/* Sidebar header */
+.sidebar-header {
+  padding: 8px 14px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
 }
-.sidebar-header h2 { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-.sidebar-body { flex: 1; overflow-y: auto; padding: 6px; }
+.sidebar-header h2 { 
+  font-size: 11px; 
+  font-weight: 600; 
+  color: var(--text-muted); 
+  text-transform: uppercase; 
+  letter-spacing: 0.8px; 
+}
+.sidebar-body { flex: 1; overflow-y: auto; padding: 6px 8px 12px; }
 
+/* Dashboard entry */
+.dashboard-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.1s;
+  user-select: none;
+  margin-bottom: 4px;
+}
+.dashboard-entry:hover { background: var(--bg-hover); }
+.dashboard-entry.active { 
+  background: var(--primary-subtle); 
+  border: 1px solid rgba(88,166,255,0.2);
+}
+.dashboard-entry .entry-icon { font-size: 16px; flex-shrink: 0; }
+.dashboard-entry .entry-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Sidebar divider */
+.sidebar-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 12px;
+}
+
+/* Repo items */
 .repo-item { margin-bottom: 2px; }
 .repo-header {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   padding: 7px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius);
   cursor: pointer;
   transition: background 0.1s;
   user-select: none;
 }
 .repo-header:hover { background: var(--bg-hover); }
-.repo-header.active { background: rgba(88,166,255,0.1); }
+.repo-header.active { 
+  background: var(--primary-subtle);
+  border: 1px solid rgba(88,166,255,0.15);
+}
 .repo-chevron {
-  color: var(--text-muted);
-  font-size: 10px;
+  color: var(--text-dim);
+  font-size: 9px;
   transition: transform 0.15s;
-  width: 12px;
+  width: 14px;
   flex-shrink: 0;
+  text-align: center;
 }
 .repo-chevron.open { transform: rotate(90deg); }
+.repo-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
 .repo-name {
   flex: 1;
   font-size: 13px;
@@ -179,44 +365,48 @@ body {
   display: flex;
   align-items: center;
   gap: 5px;
+  flex-shrink: 0;
 }
 .repo-count {
   font-size: 10px;
-  padding: 1px 5px;
-  border-radius: 8px;
+  padding: 1px 6px;
+  border-radius: 10px;
   background: var(--bg);
   color: var(--text-muted);
   border: 1px solid var(--border);
+  font-weight: 500;
 }
 .repo-sched-dot {
   width: 6px; height: 6px; border-radius: 50%;
   background: var(--success);
   flex-shrink: 0;
   title: 'Schedule active';
+  box-shadow: 0 0 4px rgba(63,185,80,0.4);
 }
 
 .repo-children {
   display: none;
-  padding: 2px 0 2px 18px;
+  padding: 2px 0 2px 22px;
 }
 .repo-children.open { display: block; }
 
 .wf-row-mini {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 12px;
   color: var(--text-muted);
   cursor: default;
+  transition: all 0.1s;
 }
 .wf-row-mini:hover { background: var(--bg-hover); color: var(--text); }
 .run-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: var(--disabled); }
-.wf-mini-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-mini-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 450; }
 .mini-toggle {
-  width: 22px; height: 12px;
-  border-radius: 6px;
+  width: 24px; height: 13px;
+  border-radius: 7px;
   background: var(--disabled);
   position: relative; cursor: pointer;
   transition: background 0.2s; flex-shrink: 0;
@@ -224,279 +414,288 @@ body {
 .mini-toggle.on { background: var(--success); }
 .mini-toggle::after {
   content:''; position:absolute;
-  width:8px; height:8px; border-radius:50%;
+  width:9px; height:9px; border-radius:50%;
   background:#fff; top:2px; left:2px;
   transition: transform 0.2s;
 }
-.mini-toggle.on::after { transform: translateX(10px); }
+.mini-toggle.on::after { transform: translateX(11px); }
 
-/* ── Content ── */
+/* ═══════════════════════════════════════════
+   CONTENT AREA
+   ═══════════════════════════════════════════ */
 .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
 .content-header {
-  padding: 10px 20px;
+  padding: 14px 24px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
-  min-height: 48px;
+  min-height: 56px;
+  background: var(--bg-card);
 }
-.content-header-left { display: flex; align-items: center; gap: 10px; }
-.content-title { font-size: 15px; font-weight: 600; }
-.content-subtitle { font-size: 12px; color: var(--text-muted); }
+.content-header-left { display: flex; align-items: baseline; gap: 12px; }
+.content-title { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+.content-subtitle { font-size: 13px; color: var(--text-muted); font-weight: 450; }
 .content-header-right { display: flex; align-items: center; gap: 8px; }
 
-.content-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+.content-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
 
-/* ── Workflow table ── */
+/* ═══════════════════════════════════════════
+   WORKFLOW CARDS (new daily-use layout)
+   ═══════════════════════════════════════════ */
+.wf-cards { display: flex; flex-direction: column; gap: 8px; }
+
+.wf-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  grid-template-rows: auto auto;
+  gap: 8px 20px;
+  align-items: center;
+  transition: all 0.15s;
+}
+.wf-card:hover {
+  border-color: var(--text-dim);
+  box-shadow: var(--shadow);
+}
+
+/* Card row 1: checkbox, name+path, status, run button */
+.wf-card-check { grid-column: 1; grid-row: 1; }
+.wf-card-info { grid-column: 2; grid-row: 1 / span 2; }
+.wf-card-status { grid-column: 3; grid-row: 1; text-align: right; }
+.wf-card-run { grid-column: 4; grid-row: 1; text-align: right; }
+
+/* Card row 2: schedule controls */
+.wf-card-controls { grid-column: 3 / span 2; grid-row: 2; text-align: right; display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
+
+.wf-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.wf-card-title a {
+  color: var(--text);
+  text-decoration: none;
+  transition: color 0.1s;
+}
+.wf-card-title a:hover { color: var(--primary); }
+.wf-card-path { font-size: 12px; color: var(--text-dim); }
+.wf-card-last-run { font-size: 12px; color: var(--text-muted); margin-top: 6px; display: flex; align-items: center; gap: 6px; }
+
+.wf-card-controls .ctrl-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.wf-card-controls label {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+/* Disabled workflow indicator */
+.wf-disabled-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--failure-subtle);
+  color: var(--failure);
+  font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════
+   TABLE (kept for dashboard performance view)
+   ═══════════════════════════════════════════ */
 .wf-table { width: 100%; border-collapse: collapse; }
 .wf-table th {
   text-align: left;
-  padding: 7px 12px;
-  font-size: 11px;
+  padding: 8px 14px;
+  font-size: 10px;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text-dim);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
   background: var(--bg-card);
   position: sticky;
-  top: -16px;
+  top: -20px;
   z-index: 1;
 }
 .wf-table td {
-  padding: 9px 12px;
+  padding: 12px 14px;
   font-size: 13px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-light);
   vertical-align: middle;
 }
 .wf-table tr:last-child td { border-bottom: none; }
 .wf-table tbody tr { transition: background 0.1s; }
 .wf-table tbody tr:hover td { background: var(--bg-hover); }
 
-/* ── Workflow Performance table column alignment ── */
-.wf-table-perf th:nth-child(1),
-.wf-table-perf td:nth-child(1) { width: 10%; text-align: left; }
-.wf-table-perf th:nth-child(2),
-.wf-table-perf td:nth-child(2) { width: 14%; text-align: left; }
-.wf-table-perf th:nth-child(3),
-.wf-table-perf td:nth-child(3) { width: 7%; text-align: center; }
-.wf-table-perf th:nth-child(4),
-.wf-table-perf td:nth-child(4) { width: 8%; text-align: center; }
-.wf-table-perf th:nth-child(5),
-.wf-table-perf td:nth-child(5) { width: 20%; text-align: center; }
-.wf-table-perf th:nth-child(6),
-.wf-table-perf td:nth-child(6) { width: 14%; text-align: center; }
-.wf-table-perf th:nth-child(7),
-.wf-table-perf td:nth-child(7) { width: 8%; text-align: center; }
-.wf-table-perf th:nth-child(8),
-.wf-table-perf td:nth-child(8) { width: 6%; text-align: center; }
-.wf-table-perf th:nth-child(9),
-.wf-table-perf td:nth-child(9) { width: 13%; text-align: center; }
+/* Performance table column alignment */
+.wf-table-perf th:nth-child(1), .wf-table-perf td:nth-child(1) { width: 12%; text-align: left; }
+.wf-table-perf th:nth-child(2), .wf-table-perf td:nth-child(2) { width: 16%; text-align: left; }
+.wf-table-perf th:nth-child(3), .wf-table-perf td:nth-child(3) { width: 8%; text-align: center; }
+.wf-table-perf th:nth-child(4), .wf-table-perf td:nth-child(4) { width: 8%; text-align: center; }
+.wf-table-perf th:nth-child(5), .wf-table-perf td:nth-child(5) { width: 18%; text-align: center; }
+.wf-table-perf th:nth-child(6), .wf-table-perf td:nth-child(6) { width: 14%; text-align: center; }
+.wf-table-perf th:nth-child(7), .wf-table-perf td:nth-child(7) { width: 8%; text-align: center; }
+.wf-table-perf th:nth-child(8), .wf-table-perf td:nth-child(8) { width: 7%; text-align: center; }
+.wf-table-perf th:nth-child(9), .wf-table-perf td:nth-child(9) { width: 9%; text-align: center; }
 
-.wf-info .wf-title { font-weight: 500; font-size: 13px; }
-.wf-info .wf-path { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
-
+/* ═══════════════════════════════════════════
+   STATUS BADGES
+   ═══════════════════════════════════════════ */
 .status-badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 2px 7px; border-radius: 10px;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 20px;
   font-size: 11px; font-weight: 600; text-transform: capitalize;
 }
-.s-success { background: rgba(63,185,80,0.12); color: var(--success); }
-.s-failure { background: rgba(248,81,73,0.12); color: var(--failure); }
-.s-cancelled { background: rgba(248,81,73,0.12); color: var(--failure); }
+.status-badge .badge-dot { width: 6px; height: 6px; border-radius: 50%; }
+.s-success { background: var(--success-subtle); color: var(--success); }
+.s-success .badge-dot { background: var(--success); }
+.s-failure { background: var(--failure-subtle); color: var(--failure); }
+.s-failure .badge-dot { background: var(--failure); }
+.s-cancelled { background: var(--failure-subtle); color: var(--failure); }
+.s-cancelled .badge-dot { background: var(--failure); }
 .s-skipped { background: rgba(72,79,88,0.2); color: var(--disabled); }
-.s-in_progress,.s-queued { background: rgba(88,166,255,0.12); color: var(--running); }
-.s-timed_out { background: rgba(248,81,73,0.12); color: var(--failure); }
-.s-none { color: var(--text-muted); font-size: 13px; }
+.s-skipped .badge-dot { background: var(--disabled); }
+.s-in_progress,.s-queued { background: var(--primary-subtle); color: var(--running); }
+.s-in_progress .badge-dot,.s-queued .badge-dot { background: var(--running); animation: pulse 1.5s infinite; }
+.s-timed_out { background: var(--failure-subtle); color: var(--failure); }
+.s-none { color: var(--text-dim); font-size: 12px; font-weight: 450; }
 
-/* ── Inline controls ── */
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* ═══════════════════════════════════════════
+   INLINE CONTROLS
+   ═══════════════════════════════════════════ */
 .ctrl-select {
   background: var(--bg-input);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 5px;
-  padding: 3px 6px;
+  border-radius: 6px;
+  padding: 4px 8px;
   font-size: 12px;
   cursor: pointer;
-  transition: border-color 0.15s;
+  transition: all 0.15s;
 }
 .ctrl-select:hover { border-color: var(--text-muted); }
-.ctrl-select:focus { outline: none; border-color: var(--primary); }
-
-.cron-inp {
-  background: var(--bg-input);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  padding: 3px 6px;
-  font-size: 12px;
-  width: 120px;
-  display: block;
-  margin-top: 4px;
-}
-.cron-inp:focus { outline: none; border-color: var(--primary); }
+.ctrl-select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(88,166,255,0.12); }
 
 .save-indicator {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--success);
   opacity: 0;
   transition: opacity 0.3s;
   white-space: nowrap;
+  font-weight: 500;
 }
 .save-indicator.show { opacity: 1; }
 
 /* Toggle switch */
 .toggle {
-  width: 34px; height: 18px;
-  border-radius: 9px;
+  width: 36px; height: 20px;
+  border-radius: 10px;
   background: var(--disabled);
   position: relative; cursor: pointer;
-  transition: background 0.2s; flex-shrink: 0;
+  transition: all 0.2s; flex-shrink: 0;
   border: none; outline: none;
 }
+.toggle:hover { opacity: 0.85; }
 .toggle.on { background: var(--success); }
 .toggle::after {
   content:''; position:absolute;
-  width:14px; height:14px; border-radius:50%;
+  width:16px; height:16px; border-radius:50%;
   background:#fff; top:2px; left:2px;
   transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 .toggle.on::after { transform: translateX(16px); }
 
-/* ── Empty / loading states ── */
+/* ═══════════════════════════════════════════
+   EMPTY / LOADING STATES
+   ═══════════════════════════════════════════ */
 .empty {
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   height: 100%;
   color: var(--text-muted);
   text-align: center;
-  gap: 10px;
+  gap: 12px;
 }
 .empty p { font-size: 14px; }
+.empty-icon { font-size: 48px; opacity: 0.3; margin-bottom: 8px; }
 
-/* ── Config Modal ── */
-.overlay {
-  display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,0.65);
-  z-index: 100; align-items: center; justify-content: center;
-}
-.overlay.open { display: flex; }
-.modal {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  width: 700px; max-width: 95vw; max-height: 88vh;
-  display: flex; flex-direction: column;
-  overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-}
-.modal-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 18px 24px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-.modal-head h2 { font-size: 16px; font-weight: 600; }
-.modal-close {
-  background: none; border: none; font-size: 16px;
-  cursor: pointer; color: var(--text-muted);
-  padding: 4px 6px; border-radius: 4px;
-}
-.modal-close:hover { background: var(--bg-hover); color: var(--text); }
-.modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
-.modal-foot {
-  display: flex; gap: 8px; justify-content: flex-end;
-  padding: 14px 24px;
-  border-top: 1px solid var(--border);
-  background: var(--bg-card);
-  flex-shrink: 0;
-}
-
-.cfg-section { margin-bottom: 24px; }
-.cfg-section:last-child { margin-bottom: 0; }
-.cfg-section-title {
-  font-size: 12px; font-weight: 600; color: var(--text-muted);
-  text-transform: uppercase; letter-spacing: 0.5px;
-  margin-bottom: 12px; padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
-}
-.cfg-row { display: flex; gap: 14px; }
-.cfg-field { margin-bottom: 14px; flex: 1; }
-.cfg-field:last-child { margin-bottom: 0; }
-.cfg-repo-vis-row {
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 8px; border-radius: 6px;
-}
-.cfg-repo-vis-row:hover { background: var(--bg-hover); }
-.cfg-repo-vis-chk { width: 14px; height: 14px; cursor: pointer; }
-.cfg-repo-vis-label { font-size: 13px; color: var(--text); cursor: pointer; }
-.cfg-field label {
-  display: block; font-size: 12px; font-weight: 500;
-  color: var(--text-muted); margin-bottom: 5px;
-}
-.cfg-field input, .cfg-field select {
-  width: 100%; padding: 8px 10px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: 6px; color: var(--text); font-size: 13px;
-}
-.cfg-field input:focus, .cfg-field select:focus {
-  outline: none; border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(88,166,255,0.15);
-}
-.cfg-field input[readonly] { background: var(--bg-card); color: var(--text-muted); cursor: default; }
-.cfg-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
-.cfg-hint code { background: var(--bg-input); padding: 1px 4px; border-radius: 3px; font-size: 10px; }
-
-/* Config scheduler toggle row */
-.cfg-toggle-row {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 12px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-.cfg-toggle-row .toggle-info .toggle-title { font-size: 13px; font-weight: 500; }
-.cfg-toggle-row .toggle-info .toggle-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
-
-/* ── Dashboard / Stats ── */
+/* ═══════════════════════════════════════════
+   DASHBOARD / STATS
+   ═══════════════════════════════════════════ */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   margin-bottom: 24px;
 }
 .stat-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: var(--radius-lg);
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  transition: all 0.15s;
 }
-.stat-label { font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
-.stat-value { font-size: 24px; font-weight: 700; color: var(--text); }
-.stat-trend { font-size: 11px; margin-top: 4px; }
+.stat-card:hover {
+  border-color: var(--text-dim);
+  box-shadow: var(--shadow);
+}
+.stat-label { 
+  font-size: 11px; 
+  color: var(--text-dim); 
+  font-weight: 600; 
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.stat-value { font-size: 32px; font-weight: 800; color: var(--text); line-height: 1.1; letter-spacing: -1px; }
+.stat-trend { font-size: 12px; margin-top: 4px; font-weight: 500; }
 .trend-up { color: var(--success); }
 .trend-down { color: var(--failure); }
 
-.history-dots { display: flex; gap: 3px; margin-top: 6px; justify-content: center; flex-wrap: wrap; max-width: 100%; }
-.h-dot { width: 8px; height: 8px; border-radius: 2px; background: var(--disabled); display: block; }
-.h-success { background: var(--success); }
-.h-failure { background: var(--failure); }
-.h-running { background: var(--running); }
-
-.agg-graph-container {
+/* Dashboard sections */
+.dash-section {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 24px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 20px;
+  overflow: hidden;
 }
+.dash-section-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.dash-section-title { font-size: 14px; font-weight: 600; }
+.dash-section-subtitle { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.dash-section-body { padding: 20px; }
+
+/* Activity chart */
+.agg-graph-container { padding: 20px; }
 .agg-graph-header {
   display: flex;
   justify-content: space-between;
@@ -507,48 +706,166 @@ body {
 .agg-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 14px;
   margin-top: 16px;
-  padding-top: 12px;
+  padding-top: 14px;
   border-top: 1px solid var(--border);
 }
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11px;
+  gap: 7px;
+  font-size: 12px;
   color: var(--text-muted);
 }
-.legend-color { width: 10px; height: 10px; border-radius: 2px; }
+.legend-color { width: 10px; height: 10px; border-radius: 3px; }
 
+/* History dots */
+.history-dots { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; max-width: 100%; }
+.h-dot { width: 10px; height: 10px; border-radius: 3px; background: var(--disabled); display: block; transition: transform 0.1s; }
+.h-dot:hover { transform: scale(1.4); }
+.h-success { background: var(--success); }
+.h-failure { background: var(--failure); }
+.h-running { background: var(--running); animation: pulse 1.5s infinite; }
+
+/* Spark bars */
 .spark-wrap {
   display: flex;
   align-items: flex-end;
   gap: 2px;
-  height: 24px;
+  height: 28px;
   width: 100%;
   max-width: 160px;
   margin: 0 auto;
-  padding: 2px 0;
 }
 .spark-bar {
   flex: 1;
   background: var(--primary);
-  opacity: 0.3;
+  opacity: 0.25;
   border-radius: 1px 1px 0 0;
   min-height: 1px;
+  transition: opacity 0.1s;
 }
-.spark-bar.active { opacity: 0.8; }
+.spark-bar:hover { opacity: 0.6; }
+.spark-bar.active { opacity: 0.7; }
 
-/* ── Toast ── */
+/* ═══════════════════════════════════════════
+   CONFIG MODAL
+   ═══════════════════════════════════════════ */
+.overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px);
+  z-index: 100; align-items: center; justify-content: center;
+}
+.overlay.open { display: flex; }
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 720px; max-width: 95vw; max-height: 88vh;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+.modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.modal-head h2 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+.modal-close {
+  background: none; border: none; font-size: 18px;
+  cursor: pointer; color: var(--text-muted);
+  padding: 4px 8px; border-radius: 6px;
+  transition: all 0.1s;
+}
+.modal-close:hover { background: var(--bg-hover); color: var(--text); }
+.modal-body { padding: 24px; overflow-y: auto; flex: 1; }
+.modal-foot {
+  display: flex; gap: 8px; justify-content: flex-end;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-card);
+  flex-shrink: 0;
+}
+
+.cfg-section { margin-bottom: 28px; }
+.cfg-section:last-child { margin-bottom: 0; }
+.cfg-section-title {
+  font-size: 11px; font-weight: 600; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.8px;
+  margin-bottom: 14px; padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.cfg-row { display: flex; gap: 16px; }
+.cfg-field { margin-bottom: 16px; flex: 1; }
+.cfg-field:last-child { margin-bottom: 0; }
+
+/* Repo visibility */
+.cfg-repo-vis-list { max-height: 280px; overflow-y: auto; }
+.cfg-repo-vis-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: var(--radius);
+  transition: background 0.1s;
+}
+.cfg-repo-vis-row:hover { background: var(--bg-hover); }
+.cfg-repo-vis-chk { 
+  width: 16px; height: 16px; cursor: pointer;
+  accent-color: var(--primary);
+}
+.cfg-repo-vis-label { font-size: 13px; color: var(--text); cursor: pointer; }
+
+.cfg-field label {
+  display: block; font-size: 12px; font-weight: 500;
+  color: var(--text-muted); margin-bottom: 6px;
+}
+.cfg-field input, .cfg-field select {
+  width: 100%; padding: 9px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text); font-size: 13px;
+  transition: all 0.15s;
+}
+.cfg-field input:focus, .cfg-field select:focus {
+  outline: none; border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(88,166,255,0.15);
+}
+.cfg-field input[readonly] { background: var(--bg-card); color: var(--text-muted); cursor: default; }
+.cfg-hint { font-size: 11px; color: var(--text-dim); margin-top: 5px; line-height: 1.5; }
+.cfg-hint code { background: var(--bg-input); padding: 1px 5px; border-radius: 3px; font-size: 10px; border: 1px solid var(--border-light); }
+
+/* Config scheduler toggle row */
+.cfg-toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.cfg-toggle-row .toggle-info .toggle-title { font-size: 14px; font-weight: 500; }
+.cfg-toggle-row .toggle-info .toggle-desc { font-size: 12px; color: var(--text-muted); margin-top: 3px; line-height: 1.4; }
+
+/* ═══════════════════════════════════════════
+   TOAST NOTIFICATIONS
+   ═══════════════════════════════════════════ */
+.toast-container {
+  position: fixed;
+  bottom: 20px; right: 20px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+}
 .toast {
-  padding: 10px 16px;
-  border-radius: 8px;
+  padding: 12px 18px;
+  border-radius: var(--radius);
   font-size: 13px;
   font-weight: 500;
   animation: slideIn 0.2s ease;
-  max-width: 380px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  max-width: 400px;
+  box-shadow: var(--shadow-lg);
 }
 .toast-success { background: #162621; border: 1px solid rgba(63,185,80,0.5); color: var(--success); }
 .toast-error { background: #261616; border: 1px solid rgba(248,81,73,0.5); color: var(--failure); }
@@ -557,7 +874,7 @@ body {
 
 /* Spinner */
 .spinner {
-  width: 13px; height: 13px;
+  width: 16px; height: 16px;
   border: 2px solid var(--border);
   border-top-color: var(--primary);
   border-radius: 50%;
@@ -566,45 +883,176 @@ body {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-@media (max-width: 700px) {
-  .sidebar { width: 240px; min-width: 240px; }
+/* Checkbox styling */
+input[type="checkbox"] {
+  accent-color: var(--primary);
+  width: 15px; height: 15px;
+  cursor: pointer;
 }
-@media (max-width: 540px) {
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .sidebar { width: 260px; min-width: 260px; }
+  .header-center { display: none; }
+}
+@media (max-width: 600px) {
   .main { flex-direction: column; }
-  .sidebar { width: 100%; min-width: 100%; max-height: 36vh; border-right: none; border-bottom: 1px solid var(--border); }
+  .sidebar { 
+    width: 100%; min-width: 100%; 
+    max-height: 40vh; 
+    border-right: none; 
+    border-bottom: 1px solid var(--border); 
+  }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ═══════════════════════════════════════════
+   VIEW TOGGLE (cards/table)
+   ═══════════════════════════════════════════ */
+.view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.view-toggle button {
+  padding: 5px 10px;
+  background: var(--bg);
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.1s;
+}
+.view-toggle button:not(:last-child) { border-right: 1px solid var(--border); }
+.view-toggle button:hover { background: var(--bg-hover); color: var(--text); }
+.view-toggle button.active { background: var(--primary-subtle); color: var(--primary); }
+
+/* Workflow count badge */
+.count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.count-badge.success { background: var(--success-subtle); color: var(--success); }
+.count-badge.failure { background: var(--failure-subtle); color: var(--failure); }
+.count-badge.running { background: var(--primary-subtle); color: var(--running); }
+
+/* Recent activity feed */
+.activity-feed { display: flex; flex-direction: column; gap: 1px; }
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  transition: background 0.1s;
+}
+.activity-item:hover { background: var(--bg-hover); }
+.activity-icon {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.activity-icon.success { background: var(--success-subtle); }
+.activity-icon.failure { background: var(--failure-subtle); }
+.activity-icon.running { background: var(--primary-subtle); }
+.activity-info { flex: 1; min-width: 0; }
+.activity-title { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.activity-time { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+
+/* No data state */
+.no-data-msg {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
 </style>
 </head>
 <body>
 
-<!-- Header -->
+<!-- ═══ Header ═══ -->
 <div class="header">
   <div class="header-brand">
-    <h1>⚡ Actions Manager</h1>
+    <h1>
+      <span class="logo-icon">⚡</span>
+      Actions Manager
+    </h1>
     <span class="org-pill" id="org-label"></span>
   </div>
+
+  <div class="header-center">
+    <div class="global-search-wrap">
+      <span class="global-search-icon">🔍</span>
+      <input type="text" class="global-search" id="global-search" placeholder="Search workflows across all repos..." oninput="filterSidebar(this.value)">
+    </div>
+  </div>
+
   <div class="header-actions">
     <div class="scheduler-badge" id="scheduler-badge" onclick="toggleScheduler()" title="Click to toggle scheduler">
       <span class="sched-dot"></span>
       <span id="scheduler-label">Scheduler Off</span>
     </div>
-    <button class="btn btn-sm" onclick="loadRepos()">↻ Refresh</button>
-    <button class="btn btn-sm" onclick="openConfig()">⚙ Config</button>
+    <button class="btn btn-sm" onclick="loadRepos()" title="Refresh all data">↻ Refresh</button>
+    <button class="btn btn-sm" onclick="openConfig()" title="Open settings">⚙ Config</button>
   </div>
 </div>
 
-<!-- Main -->
+<!-- ═══ Main Layout ═══ -->
 <div class="main">
+  <!-- Sidebar -->
   <div class="sidebar">
-    <div class="sidebar-header">
-      <h2>Repositories</h2>
-      <button class="btn btn-xs" id="show-hidden-btn" onclick="toggleShowHidden()" title="Show hidden repos" style="opacity:0.5">👁 Hidden</button>
+    <!-- Status summary at top -->
+    <div class="sidebar-status" id="sidebar-status">
+      <div class="sidebar-stat success">
+        <div class="sidebar-stat-value" id="stat-success-count">—</div>
+        <div class="sidebar-stat-label">Success</div>
+      </div>
+      <div class="sidebar-stat running">
+        <div class="sidebar-stat-value" id="stat-running-count">—</div>
+        <div class="sidebar-stat-label">Running</div>
+      </div>
+      <div class="sidebar-stat failure">
+        <div class="sidebar-stat-value" id="stat-failure-count">—</div>
+        <div class="sidebar-stat-label">Failed</div>
+      </div>
     </div>
+
+    <!-- Search filter -->
+    <div class="sidebar-search-wrap">
+      <span class="sidebar-search-icon">🔍</span>
+      <input type="text" class="sidebar-search" id="sidebar-search" placeholder="Filter repos..." oninput="filterSidebar(this.value)">
+    </div>
+
+    <!-- Header -->
+    <div class="sidebar-header">
+      <h2>Navigate</h2>
+      <button class="btn btn-xs" id="show-hidden-btn" onclick="toggleShowHidden()" title="Toggle hidden repos" style="opacity:0.5;font-size:10px;padding:2px 6px;">👁 Hidden</button>
+    </div>
+
+    <!-- Repo list -->
     <div class="sidebar-body" id="repo-list">
       <div class="empty"><div class="spinner"></div></div>
     </div>
   </div>
 
+  <!-- Content area -->
   <div class="content">
     <div class="content-header" id="content-header" style="display:none">
       <div class="content-header-left">
@@ -614,12 +1062,15 @@ body {
       <div class="content-header-right" id="content-header-right"></div>
     </div>
     <div class="content-body" id="content-body">
-      <div class="empty"><p>Select a repository from the sidebar.</p></div>
+      <div class="empty">
+        <div class="empty-icon">📦</div>
+        <p>Select a repository or dashboard from the sidebar.</p>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- Config Modal -->
+<!-- ═══ Config Modal ═══ -->
 <div class="overlay" id="config-modal">
   <div class="modal">
     <div class="modal-head">
@@ -629,26 +1080,26 @@ body {
     <div class="modal-body">
 
       <section class="cfg-section">
-        <div class="cfg-section-title">General</div>
+        <div class="cfg-section-title">General Settings</div>
         <div class="cfg-field">
-          <label>Org / User Name</label>
+          <label>Organization / User</label>
           <input id="cfg-org" type="text" readonly>
-          <div class="cfg-hint">Set via <code>ORG_NAME</code> environment variable</div>
+          <div class="cfg-hint">Set via <code>ORG_NAME</code> environment variable on the server.</div>
         </div>
         <div class="cfg-field">
-          <label>GitHub PAT</label>
+          <label>GitHub Personal Access Token</label>
           <input id="cfg-pat" type="password" placeholder="ghp_xxxxxxxxxxxx">
-          <div class="cfg-hint">Leave blank to keep existing. Needs <code>repo</code> + <code>workflow</code> scopes.</div>
+          <div class="cfg-hint">Leave blank to keep existing token. Requires <code>repo</code> + <code>workflow</code> scopes.</div>
         </div>
         <div class="cfg-row">
           <div class="cfg-field">
-            <label>Auto-refresh (seconds)</label>
+            <label>Auto-refresh Interval (seconds)</label>
             <input id="cfg-refresh" type="number" min="10" max="300" step="5">
           </div>
           <div class="cfg-field">
-            <label>Timezone</label>
+            <label>Scheduler Timezone</label>
             <input id="cfg-timezone" type="text" placeholder="UTC">
-            <div class="cfg-hint">e.g. America/New_York</div>
+            <div class="cfg-hint">e.g. America/New_York, Europe/London</div>
           </div>
         </div>
       </section>
@@ -657,23 +1108,24 @@ body {
         <div class="cfg-section-title">Scheduler</div>
         <div class="cfg-toggle-row">
           <div class="toggle-info">
-            <div class="toggle-title">Auto-trigger scheduler</div>
-            <div class="toggle-desc">Checks and fires due workflows every 60 seconds</div>
+            <div class="toggle-title">Auto-trigger Scheduler</div>
+            <div class="toggle-desc">Automatically checks and fires due workflows every 60 seconds based on their cron schedules.</div>
           </div>
           <button class="toggle" id="cfg-sched-toggle" onclick="toggleScheduler()" title="Toggle scheduler"></button>
         </div>
       </section>
 
       <section class="cfg-section">
-        <div class="cfg-section-title">Repo Visibility</div>
-        <div id="cfg-repo-visibility" style="max-height:300px;overflow-y:auto;"></div>
+        <div class="cfg-section-title">Repository Visibility</div>
+        <div class="cfg-hint" style="margin-bottom:10px;">Check to hide a repo from the dashboard sidebar.</div>
+        <div id="cfg-repo-visibility" class="cfg-repo-vis-list"></div>
       </section>
 
     </div>
     <div class="modal-foot">
-      <button class="btn btn-danger" onclick="resetConfig()" style="margin-right:auto">Reset Config</button>
+      <button class="btn btn-danger" onclick="resetConfig()" style="margin-right:auto">Reset All Config</button>
       <button class="btn" onclick="closeConfig()">Cancel</button>
-      <button class="btn btn-primary" id="cfg-save-btn" onclick="saveConfig()">Save</button>
+      <button class="btn btn-primary" id="cfg-save-btn" onclick="saveConfig()">Save Changes</button>
     </div>
   </div>
 </div>
@@ -681,9 +1133,9 @@ body {
 <div class="toast-container" id="toasts"></div>
 
 <script>
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
 // State
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
 const state = {
   repos: [],
   workflows: {},    // { repoName: [wf, ...] }
@@ -694,17 +1146,18 @@ const state = {
   refreshTimer: null,
   schedulerOn: false,
   showHidden: false,
+  viewMode: 'cards', // 'cards' or 'table'
 };
 
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
 // State Persistence
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
 function saveState() {
-  const data = {
+  localStorage.setItem('am_state', JSON.stringify({
     activeRepo: state.activeRepo,
-    expanded: Array.from(state.expanded)
-  };
-  localStorage.setItem('am_state', JSON.stringify(data));
+    expanded: Array.from(state.expanded),
+    viewMode: state.viewMode,
+  }));
 }
 
 function loadPersistentState() {
@@ -713,31 +1166,22 @@ function loadPersistentState() {
     if (saved) {
       const data = JSON.parse(saved);
       state.activeRepo = data.activeRepo || null;
-      if (Array.isArray(data.expanded)) {
-        state.expanded = new Set(data.expanded);
-      }
+      state.viewMode = data.viewMode || 'cards';
+      if (Array.isArray(data.expanded)) state.expanded = new Set(data.expanded);
     }
   } catch(e) { console.warn('Failed to load state', e); }
 }
 
-// Scheduler state is tracked authoritatively here, not read from DOM
 let _schedulerOn = false;
 let _repoVisEdits = {};
 
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
 // Frequency maps
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
 const FREQ_MAP = {
-  '5m':   '*/5 * * * *',
-  '10m':  '*/10 * * * *',
-  '15m':  '*/15 * * * *',
-  '30m':  '*/30 * * * *',
-  '1h':   '0 * * * *',
-  '2h':   '0 */2 * * *',
-  '4h':   '0 */4 * * *',
-  '6h':   '0 */6 * * *',
-  '12h':  '0 */12 * * *',
-  'daily':'0 0 * * *',
+  '5m':'*/5 * * * *', '10m':'*/10 * * * *', '15m':'*/15 * * * *',
+  '30m':'*/30 * * * *', '1h':'0 * * * *', '2h':'0 */2 * * *',
+  '4h':'0 */4 * * *', '6h':'0 */6 * * *', '12h':'0 */12 * * *', 'daily':'0 0 * * *',
 };
 const REV_FREQ = Object.fromEntries(Object.entries(FREQ_MAP).map(([k,v])=>[v,k]));
 
@@ -746,24 +1190,21 @@ function cronToKey(cron) {
   return REV_FREQ[cron] || 'disabled';
 }
 
-// ─────────────────────────────────────────────
-// API
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
+// API helper
+// ═══════════════════════════════════════════
 async function api(path, opts = {}) {
-  const res = await fetch(path, {
-    headers: { 'Content-Type': 'application/json' },
-    ...opts,
-  });
+  const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
   const text = await res.text();
   let data;
-  try { data = JSON.parse(text); } catch(e) { throw new Error(`Bad JSON from server`); }
+  try { data = JSON.parse(text); } catch(e) { throw new Error('Bad JSON from server'); }
   if (!res.ok) throw new Error(data.error || data.message || `HTTP ${res.status}`);
   return data;
 }
 
-// ─────────────────────────────────────────────
-// Toast
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
+// Toast notifications
+// ═══════════════════════════════════════════
 function toast(msg, type = 'info', duration = 3000) {
   const el = document.createElement('div');
   el.className = `toast toast-${type}`;
@@ -772,9 +1213,9 @@ function toast(msg, type = 'info', duration = 3000) {
   setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity 0.3s'; setTimeout(()=>el.remove(),300); }, duration);
 }
 
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
 // Status helpers
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
 function runDotColor(conclusion, status) {
   if (status === 'in_progress' || status === 'queued') return 'var(--running)';
   switch (conclusion) {
@@ -785,10 +1226,10 @@ function runDotColor(conclusion, status) {
 }
 
 function statusBadge(run) {
-  if (!run) return '<span class="s-none">—</span>';
-  const label = run.status === 'in_progress' ? 'running' : (run.conclusion || run.status || '—');
+  if (!run) return '<span class="s-none">never run</span>';
+  const label = run.status === 'in_progress' ? 'running' : (run.conclusion || run.status || 'unknown');
   const cls = run.status === 'in_progress' ? 's-in_progress' : `s-${run.conclusion || 'none'}`;
-  return `<span class="status-badge ${cls}">${label}</span>`;
+  return `<span class="status-badge ${cls}"><span class="badge-dot"></span>${label}</span>`;
 }
 
 function freqOptions(selected) {
@@ -801,31 +1242,53 @@ function freqOptions(selected) {
   return opts.map(([v,l])=>`<option value="${v}"${v===selected?' selected':''}>${l}</option>`).join('');
 }
 
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
+// Sidebar status summary update
+// ═══════════════════════════════════════════
+function updateSidebarStatus() {
+  let success = 0, running = 0, failure = 0;
+  Object.values(state.workflows).forEach(wfList => {
+    wfList.forEach(wf => {
+      const run = wf.last_run;
+      if (!run) return;
+      if (run.status === 'in_progress' || run.status === 'queued') running++;
+      else if (run.conclusion === 'success') success++;
+      else if (run.conclusion === 'failure' || run.conclusion === 'timed_out' || run.conclusion === 'cancelled') failure++;
+    });
+  });
+  document.getElementById('stat-success-count').textContent = success;
+  document.getElementById('stat-running-count').textContent = running;
+  document.getElementById('stat-failure-count').textContent = failure;
+}
+
+// ═══════════════════════════════════════════
+// Sidebar search / filter
+// ═══════════════════════════════════════════
+function filterSidebar(query) {
+  // Sync both search inputs
+  document.getElementById('sidebar-search').value = query;
+  document.getElementById('global-search').value = query;
+  renderRepos(query);
+}
+
+// ═══════════════════════════════════════════
 // Load repos
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
 async function loadRepos() {
   try {
     const data = await api('/api/repos');
     state.repos = data.repos || [];
-
-    // Automatically expand all repos and load their workflows for the sidebar
     state.repos.forEach(repo => {
       state.expanded.add(repo.name);
       loadWorkflowsForSidebar(repo.name);
     });
-
     renderRepos();
+    updateSidebarStatus();
 
     if (state.activeRepo && state.activeRepo !== '_dashboard') {
       const still = state.repos.find(r => r.name === state.activeRepo);
-      if (!still) {
-        state.activeRepo = null;
-        showPlaceholder();
-      } else {
-        // Refresh active repo view without clearing content first
-        loadWorkflows(state.activeRepo);
-      }
+      if (!still) { state.activeRepo = null; showPlaceholder(); }
+      else { loadWorkflows(state.activeRepo); }
     }
   } catch(e) { toast(e.message, 'error'); }
 }
@@ -835,98 +1298,72 @@ async function loadWorkflowsForSidebar(repoName) {
     const data = await api(`/api/repos/${repoName}/workflows`);
     state.workflows[repoName] = data.workflows || [];
     renderRepos();
-
-    // Load last run for all workflows in one batch call
     const wfIds = (data.workflows || []).map(wf => wf.id);
     if (wfIds.length > 0) {
       const runs = await api(`/api/repos/${repoName}/workflows/batch-last-run`, {
-        method: "POST",
-        body: JSON.stringify({ workflow_ids: wfIds })
+        method: "POST", body: JSON.stringify({ workflow_ids: wfIds })
       });
       if (runs && state.workflows[repoName]) {
-        state.workflows[repoName].forEach(wf => {
-          if (runs[wf.id]) wf.last_run = runs[wf.id];
-        });
+        state.workflows[repoName].forEach(wf => { if (runs[wf.id]) wf.last_run = runs[wf.id]; });
         renderRepos();
+        updateSidebarStatus();
         if (state.activeRepo === repoName) renderWorkflows(repoName);
       }
     }
-  } catch (e) {
-    console.warn(`Failed to load workflows for ${repoName}:`, e);
-  }
+  } catch (e) { console.warn(`Failed to load workflows for ${repoName}:`, e); }
 }
 
-function renderRepos() {
+// ═══════════════════════════════════════════
+// Render sidebar repos
+// ═══════════════════════════════════════════
+function renderRepos(filter = '') {
   const el = document.getElementById('repo-list');
-  // Filter out hidden repos
-  const visibleRepos = state.repos.filter(r => !r.hidden);
-  const hiddenRepos = state.repos.filter(r => r.hidden);
-  const hiddenReposHtml = getHiddenReposHtml();
+  const filterLower = filter.toLowerCase();
 
-  const reposHtml = visibleRepos.map(repo => {
-    const open = state.expanded.has(repo.name);
-    const active = state.activeRepo === repo.name;
-    const wfs = state.workflows[repo.name];
-    const hasSchedule = wfs && wfs.some(w => w.enabled_schedule);
-    const isLoaded = wfs !== undefined;
+  function matchesFilter(repo, wf) {
+    if (!filterLower) return true;
+    if (repo.name.toLowerCase().includes(filterLower)) return true;
+    if (wf && wf.name.toLowerCase().includes(filterLower)) return true;
+    return false;
+  }
 
-    return `
-<div class="repo-item">
+  const allRepos = state.repos;
+  const visibleRepos = allRepos.filter(r => !r.hidden);
+  const hiddenRepos = allRepos.filter(r => r.hidden);
+
+  function renderRepoList(repos, dimOpacity) {
+    return repos.map(repo => {
+      if (!matchesFilter(repo, null)) {
+        // Check if any workflow matches
+        const wfs = state.workflows[repo.name] || [];
+        const wfMatch = wfs.some(wf => matchesFilter(repo, wf));
+        if (!wfMatch) return '';
+      }
+
+      const open = state.expanded.has(repo.name);
+      const active = state.activeRepo === repo.name;
+      const wfs = state.workflows[repo.name];
+      const hasSchedule = wfs && wfs.some(w => w.enabled_schedule);
+      const isLoaded = wfs !== undefined;
+
+      // Filter workflows if needed
+      const displayWfs = wfs ? (filterLower ? wfs.filter(wf => matchesFilter(repo, wf)) : wfs) : [];
+
+      return `
+<div class="repo-item" data-repo="${esc(repo.name)}">
   <div class="repo-header ${active?'active':''}" onclick="selectRepo('${esc(repo.name)}')">
     <span class="repo-chevron ${open?'open':''}">▶</span>
+    <span class="repo-icon">📦</span>
     <span class="repo-name">${esc(repo.name)}</span>
     <span class="repo-meta">
-      ${hasSchedule ? '<span class="repo-sched-dot" title="Schedule active"></span>' : ''}
-      ${isLoaded && wfs.length ? `<span class="repo-count">${wfs.length}</span>` : ''}
-    </span>
-  </div>
-  <div class="repo-children ${open?'open':''}">
-    ${!isLoaded && open ? '<div class="wf-row-mini"><span class="spinner" style="width:10px;height:10px"></span><span class="wf-mini-name">Loading...</span></div>' : ''}
-    ${isLoaded && wfs.length === 0 && open ? '<div class="wf-row-mini"><span class="wf-mini-name" style="opacity:0.5;font-style:italic">No workflows</span></div>' : ''}
-    ${isLoaded ? wfs.map(wf => `
-      <div class="wf-row-mini">
-        <span class="run-dot" style="background:${runDotColor(wf.last_run?.conclusion, wf.last_run?.status)}"></span>
-        <span class="wf-mini-name" title="${esc(wf.name)}">${esc(wf.name)}</span>
-        <div class="mini-toggle ${wf.enabled_schedule?'on':''}" onclick="event.stopPropagation();quickToggleSchedule('${esc(repo.name)}',${wf.id})" title="${wf.enabled_schedule?'Disable':'Enable'} schedule"></div>
-      </div>
-    `).join('') : ''}
-  </div>
-</div>`;
-  }).join('');
-
-  const dashboardActive = state.activeRepo === '_dashboard';
-
-  el.innerHTML = `
-    <div class="repo-item">
-      <div class="repo-header ${dashboardActive?'active':''}" onclick="selectDashboard()">
-        <span class="repo-chevron" style="visibility:hidden">▶</span>
-        <span class="repo-name">📊 Dashboard</span>
-      </div>
-    </div>
-    <div style="height:1px; background:var(--border); margin:4px 10px"></div>
-    ${visibleRepos.length ? reposHtml : '<div class="empty"><p>No repos found.</p></div>'}
-    ${hiddenRepos.length && state.showHidden ? '<div style="height:1px; background:var(--border); margin:4px 10px"></div>' + hiddenReposHtml : ''}
-  `;
-}
-
-function getHiddenReposHtml() {
-  return state.repos.filter(r => r.hidden).map(repo => {
-    const open = state.expanded.has(repo.name);
-    const active = state.activeRepo === repo.name;
-    const wfs = state.workflows[repo.name];
-    const isLoaded = wfs !== undefined;
-    return `
-<div class="repo-item">
-  <div class="repo-header ${active?'active':''}" onclick="selectRepo('${esc(repo.name)}')" style="opacity:0.5">
-    <span class="repo-chevron ${open?'open':''}">▶</span>
-    <span class="repo-name">${esc(repo.name)}</span>
-    <span class="repo-meta">
-      <span class="repo-count" title="Hidden from dashboard">👁</span>
+      ${hasSchedule ? '<span class="repo-sched-dot" title="Has active schedules"></span>' : ''}
       ${isLoaded && wfs?.length ? `<span class="repo-count">${wfs.length}</span>` : ''}
     </span>
   </div>
   <div class="repo-children ${open?'open':''}">
-    ${isLoaded && wfs?.length ? wfs.map(wf => `
+    ${!isLoaded && open ? '<div class="wf-row-mini"><span class="spinner" style="width:10px;height:10px"></span><span class="wf-mini-name">Loading...</span></div>' : ''}
+    ${isLoaded && wfs?.length === 0 && open ? '<div class="wf-row-mini"><span class="wf-mini-name" style="opacity:0.5;font-style:italic">No workflows found</span></div>' : ''}
+    ${isLoaded ? displayWfs.map(wf => `
       <div class="wf-row-mini">
         <span class="run-dot" style="background:${runDotColor(wf.last_run?.conclusion, wf.last_run?.status)}"></span>
         <span class="wf-mini-name" title="${esc(wf.name)}">${esc(wf.name)}</span>
@@ -935,7 +1372,20 @@ function getHiddenReposHtml() {
     `).join('') : ''}
   </div>
 </div>`;
-  }).join('');
+    }).join('');
+  }
+
+  const dashboardActive = state.activeRepo === '_dashboard';
+
+  el.innerHTML = `
+    <div class="dashboard-entry ${dashboardActive?'active':''}" onclick="selectDashboard()">
+      <span class="entry-icon">📊</span>
+      <span class="entry-label">Dashboard Overview</span>
+    </div>
+    <div class="sidebar-divider"></div>
+    ${visibleRepos.length ? renderRepoList(visibleRepos) : '<div class="empty"><p>No repositories found.</p></div>'}
+    ${hiddenRepos.length && state.showHidden ? '<div class="sidebar-divider"></div>' + renderRepoList(hiddenRepos, 0.5) : ''}
+  `;
 }
 
 function selectDashboard() {
@@ -953,78 +1403,73 @@ function toggleShowHidden() {
 }
 
 function onRepoVisToggle(el) {
-  const repoName = el.dataset.repo;
-  if (el.checked) {
-    _repoVisEdits[repoName] = true;
-  } else {
-    _repoVisEdits[repoName] = false;
-  }
+  _repoVisEdits[el.dataset.repo] = el.checked;
 }
 
+// ═══════════════════════════════════════════
+// Dashboard rendering
+// ═══════════════════════════════════════════
 function getLineColor(i) {
-  const colors = ['#58a6ff', '#3fb950', '#f85149', '#d29922', '#db61a2', '#a371f7', '#ffa657', '#7ee787', '#ff7b72', '#a5d6ff'];
+  const colors = ['#58a6ff','#3fb950','#f85149','#d29922','#db61a2','#a371f7','#ffa657','#7ee787','#ff7b72','#a5d6ff'];
   return colors[i % colors.length];
 }
 
 function renderAggregateSVG(stats) {
-  const width = 800;
-  const height = 180;
-  const padding = 20;
-  
-  // Find global max to scale Y axis
+  const width = 800, height = 180, padding = 20;
   let maxRuns = 0;
-  stats.forEach(s => {
-    (s.hourly_runs || []).forEach(count => { if(count > maxRuns) maxRuns = count; });
-  });
+  stats.forEach(s => (s.hourly_runs||[]).forEach(c => { if(c > maxRuns) maxRuns = c; }));
   if (maxRuns === 0) maxRuns = 1;
 
-  const points = stats.map((s, seriesIdx) => {
+  const points = stats.map((s, i) => {
     const hourly = s.hourly_runs || Array(24).fill(0);
-    const color = getLineColor(seriesIdx);
-    const pathData = hourly.map((count, i) => {
-      const x = padding + (i * (width - 2 * padding) / 23);
-      const y = (height - padding) - (count * (height - 2 * padding) / maxRuns);
-      return `${i === 0 ? 'M' : 'L'} ${x},${y}`;
-    }).join(' ');
-    
-    return `<path d="${pathData}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />`;
+    const color = getLineColor(i);
+    return `<path d="${hourly.map((c,h) => {
+      const x = padding + (h * (width - 2*padding)/23);
+      const y = (height-padding) - (c*(height-2*padding)/maxRuns);
+      return `${h===0?'M':'L'} ${x},${y}`;
+    }).join(' ')}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
   }).join('');
 
-  // Draw X axis
-  const xAxis = `<line x1="${padding}" y1="${height-padding}" x2="${width-padding}" y2="${height-padding}" stroke="var(--border)" stroke-width="1" />`;
-  
-  return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="width:100%; height:100%; display:block">
-    ${xAxis}
-    ${points}
-  </svg>`;
+  const xAxis = `<line x1="${padding}" y1="${height-padding}" x2="${width-padding}" y2="${height-padding}" stroke="var(--border)" stroke-width="1"/>`;
+  return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="width:100%;height:100%;display:block">${xAxis}${points}</svg>`;
 }
 
 async function renderDashboard() {
   const body = document.getElementById('content-body');
   document.getElementById('content-header').style.display = 'flex';
-  document.getElementById('content-title').textContent = 'Insights Dashboard';
-  document.getElementById('content-subtitle').textContent = 'Aggregated performance metrics (24h)';
+  document.getElementById('content-title').textContent = 'Dashboard Overview';
+  document.getElementById('content-subtitle').textContent = 'Performance metrics and activity across all workflows';
   document.getElementById('content-header-right').innerHTML = '';
 
-  const hasData = state._dashboardStats !== undefined;
-  if (!hasData) {
-    body.innerHTML = '<div class="empty"><div class="spinner"></div><p>Aggregating stats...</p></div>';
-  }
+  body.innerHTML = `
+    <div class="empty" style="height:300px">
+      <div class="spinner"></div>
+      <p>Loading dashboard data...</p>
+    </div>`;
 
   try {
     const data = await api('/api/scheduler/stats');
-    state._dashboardStats = data;
     const { summary, stats } = data;
 
+    // Collect all recent runs for activity feed
+    let allRecentRuns = [];
+    stats.forEach(s => {
+      (s.last_runs||[]).forEach(r => {
+        allRecentRuns.push({ ...r, repo: s.repo, workflow_name: (state.workflows[s.repo]||[]).find(w=>String(w.id)===String(s.workflow_id))?.name || String(s.workflow_id) });
+      });
+    });
+    allRecentRuns.sort((a,b) => (b.display_time||'').localeCompare(a.display_time||''));
+
     body.innerHTML = `
+      <!-- Stats cards -->
       <div class="stats-grid">
         <div class="stat-card">
-          <span class="stat-label">Scheduled</span>
+          <span class="stat-label">Total Workflows</span>
           <span class="stat-value">${summary.total_scheduled}</span>
-          <span class="stat-trend">Workflows active</span>
+          <span class="stat-trend">Scheduled and active</span>
         </div>
         <div class="stat-card">
-          <span class="stat-label">Runs (24h)</span>
+          <span class="stat-label">Runs Today (24h)</span>
           <span class="stat-value">${summary.total_runs_24h}</span>
           <span class="stat-trend">Total executions</span>
         </div>
@@ -1032,99 +1477,127 @@ async function renderDashboard() {
           <span class="stat-label">Success Rate</span>
           <span class="stat-value">${summary.success_rate_24h}%</span>
           <span class="stat-trend ${summary.success_rate_24h > 90 ? 'trend-up' : 'trend-down'}">
-            ${summary.success_rate_24h > 90 ? '✓ High stability' : '⚠ Action required'}
+            ${summary.success_rate_24h > 95 ? '✓ Excellent' : summary.success_rate_24h > 90 ? '✓ Good stability' : '⚠ Needs attention'}
           </span>
         </div>
-      </div>
-
-      <div class="agg-graph-container">
-        <div class="agg-graph-header">
-          <div class="agg-graph-title">Execution Comparison (Last 24 Hours)</div>
-          <div style="font-size:11px;color:var(--text-muted)">Overlaying all scheduled runs by hour</div>
-        </div>
-        <div id="agg-svg-wrap" style="width:100%; height:180px">
-          ${renderAggregateSVG(stats)}
-        </div>
-        <div class="agg-legend">
-          ${stats.map((s, i) => `
-            <div class="legend-item">
-              <div class="legend-color" style="background:${getLineColor(i)}"></div>
-              <span>${esc(s.repo)}: ${esc((state.workflows[s.repo] || []).find(w => String(w.id) === String(s.workflow_id))?.name || s.workflow_id)}</span>
-            </div>
-          `).join('')}
+        <div class="stat-card">
+          <span class="stat-label">Failures (24h)</span>
+          <span class="stat-value" style="color:${(summary.total_runs_24h - summary.success_count_24h) > 0 ? 'var(--failure)' : 'var(--text)'}">${summary.total_runs_24h - summary.success_count_24h}</span>
+          <span class="stat-trend">Failed executions</span>
         </div>
       </div>
 
-      <div class="cfg-section-title">Workflow Performance</div>
-      <table class="wf-table wf-table-perf">
-        <thead>
-          <tr>
-            <th>Repository</th>
-            <th>Workflow</th>
-            <th>Runs (24h)</th>
-            <th>Status</th>
-            <th>Activity (24h)</th>
-            <th>Recent History</th>
-            <th>Frequency</th>
-            <th>Branch</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${stats.map(s => {
-            const wfs = state.workflows[s.repo] || [];
-            const wf = wfs.find(w => String(w.id) === String(s.workflow_id));
-            const name = wf ? wf.name : s.workflow_id;
-            const rate = s.run_count_24h > 0 ? Math.round(s.success_count_24h / s.run_count_24h * 100) : 0;
-            return `
-              <tr>
-                <td style="font-weight:600;color:var(--primary)">${esc(s.repo)}</td>
-                <td><div class="wf-info"><div class="wf-title"><a href="${wf?.last_run?.display_url||'#'}" target="_blank" style="color:inherit;text-decoration:none;">${esc(name)}</a></div></div></td>
-                <td>
-                  <span style="font-weight:600">${s.run_count_24h}</span>
-                </td>
-                <td>
-                  <span class="status-badge ${rate >= 90 ? 's-success' : 's-failure'}">${rate}%</span>
-                </td>
-                <td>
-                  <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">Activity (24h)</div>
-                  <div class="spark-wrap" title="Hourly run density: Left (24h ago) to Right (Now)">
-                    ${(s.hourly_runs || []).map(count => {
-                      const height = count === 0 ? 1 : Math.min(24, count * 4);
-                      return `<div class="spark-bar ${count>0?'active':''}" style="height:${height}px"></div>`;
-                    }).join('')}
-                  </div>
-                </td>
-                <td>
-                  <div class="history-dots">
-                    ${(s.last_runs || []).reverse().slice(-10).map(r => `
-                      <a href="${r.display_url}" target="_blank" class="h-dot h-${r.status === 'in_progress' ? 'running' : (r.conclusion || 'none')}" title="${r.relative_time}: ${r.conclusion || r.status}"></a>
-                    `).join('')}
-                  </div>
-                </td>
-                <td>${wf?.enabled_schedule ? esc(cronToKey(wf.cron)) : '<span style="color:var(--text-muted)">—</span>'}</td>
-                <td>${esc(wf?.branch || 'main')}</td>
-                <td><button class="btn btn-xs btn-primary" onclick="triggerOne('${esc(s.repo)}',${wf?.id})">Run</button><button class="btn btn-xs btn-danger" style="margin-left:4px" onclick="quickToggleSchedule('${esc(s.repo)}',${wf?.id})">${wf?.enabled_schedule ? 'Disable' : 'Enable'}</button></td>
-              </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
+      <!-- Activity chart -->
+      ${stats.length > 0 ? `
+      <div class="dash-section">
+        <div class="dash-section-header">
+          <div>
+            <div class="dash-section-title">Execution Timeline</div>
+            <div class="dash-section-subtitle">Hourly run frequency for all scheduled workflows (last 24h)</div>
+          </div>
+        </div>
+        <div class="agg-graph-container">
+          <div id="agg-svg-wrap" style="width:100%;height:180px">${renderAggregateSVG(stats)}</div>
+          <div class="agg-legend">
+            ${stats.map((s,i) => `
+              <div class="legend-item">
+                <div class="legend-color" style="background:${getLineColor(i)}"></div>
+                <span>${esc(s.repo)} : ${(state.workflows[s.repo]||[]).find(w=>String(w.id)===String(s.workflow_id))?.name || s.workflow_id}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>` : ''}
+
+      <!-- Recent activity feed -->
+      ${allRecentRuns.length > 0 ? `
+      <div class="dash-section">
+        <div class="dash-section-header">
+          <div>
+            <div class="dash-section-title">Recent Activity</div>
+            <div class="dash-section-subtitle">Latest workflow executions across all repos</div>
+          </div>
+        </div>
+        <div class="dash-section-body" style="padding:8px;">
+          <div class="activity-feed">
+            ${allRecentRuns.slice(0, 20).map(r => {
+              const iconCls = r.status==='in_progress'?'running' : (r.conclusion==='success'?'success':'failure');
+              const icon = r.status==='in_progress'?'▶' : (r.conclusion==='success'?'✓':'✗');
+              return `
+              <div class="activity-item">
+                <div class="activity-icon ${iconCls}">${icon}</div>
+                <div class="activity-info">
+                  <div class="activity-title"><a href="${r.display_url}" target="_blank" style="color:inherit;text-decoration:none;">${esc(r.workflow_name)}</a></div>
+                  <div class="activity-meta">${esc(r.repo)} · ${r.conclusion || r.status}</div>
+                </div>
+                <div class="activity-time">${esc(r.relative_time||'')}</div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      </div>` : ''}
+
+      <!-- Performance table -->
+      ${stats.length > 0 ? `
+      <div class="dash-section">
+        <div class="dash-section-header">
+          <div>
+            <div class="dash-section-title">Workflow Performance</div>
+            <div class="dash-section-subtitle">Detailed metrics per workflow</div>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="wf-table wf-table-perf">
+            <thead><tr>
+              <th>Repository</th><th>Workflow</th><th>Runs</th><th>Rate</th>
+              <th>Activity (24h)</th><th>Recent History</th><th>Freq</th><th>Branch</th><th>Actions</th>
+            </tr></thead>
+            <tbody>
+              ${stats.map(s => {
+                const wfs = state.workflows[s.repo]||[];
+                const wf = wfs.find(w=>String(w.id)===String(s.workflow_id));
+                const name = wf ? wf.name : s.workflow_id;
+                const rate = s.run_count_24h > 0 ? Math.round(s.success_count_24h/s.run_count_24h*100) : 0;
+                return `<tr>
+                  <td style="font-weight:600;color:var(--primary);white-space:nowrap">${esc(s.repo)}</td>
+                  <td><div class="wf-info"><div class="wf-title"><a href="${wf?.last_run?.display_url||'#'}" target="_blank" style="color:inherit;text-decoration:none;">${esc(name)}</a></div></div></td>
+                  <td style="text-align:center;font-weight:600">${s.run_count_24h}</td>
+                  <td style="text-align:center"><span class="status-badge ${rate>=90?'s-success':'s-failure'}">${rate}%</span></td>
+                  <td><div class="spark-wrap">${(s.hourly_runs||[]).map(c => `<div class="spark-bar ${c>0?'active':''}" style="height:${c===0?1:Math.min(28,c*4)}px"></div>`).join('')}</div></td>
+                  <td><div class="history-dots">${(s.last_runs||[]).reverse().slice(-10).map(r => `<a href="${r.display_url}" target="_blank" class="h-dot h-${r.status==='in_progress'?'running':(r.conclusion||'none')}" title="${r.relative_time}: ${r.conclusion||r.status}"></a>`).join('')}</div></td>
+                  <td style="text-align:center;font-size:12px">${wf?.enabled_schedule ? esc(cronToKey(wf.cron)) : '<span style="color:var(--text-dim)">—</span>'}</td>
+                  <td style="text-align:center;font-size:12px">${esc(wf?.branch||'main')}</td>
+                  <td style="text-align:center"><button class="btn btn-xs btn-primary" onclick="triggerOne('${esc(s.repo)}',${wf?.id})">▶ Run</button></td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>` : `
+      <div class="no-data-msg">No workflow data available yet. Enable the scheduler and configure schedules to see metrics here.</div>`}
     `;
   } catch(e) {
-    body.innerHTML = `<div class="empty"><p style="color:var(--failure)">Error fetching dashboard: ${e.message}</p></div>`;
+    body.innerHTML = `<div class="empty"><p style="color:var(--failure)">Error loading dashboard: ${esc(e.message)}</p></div>`;
   }
 }
 
+// ═══════════════════════════════════════════
+// Utility
+// ═══════════════════════════════════════════
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 function showPlaceholder() {
   document.getElementById('content-header').style.display = 'none';
-  document.getElementById('content-body').innerHTML = '<div class="empty"><p>Select a repository from the sidebar.</p></div>';
+  document.getElementById('content-body').innerHTML = `
+    <div class="empty">
+      <div class="empty-icon">📦</div>
+      <p>Select a repository or dashboard from the sidebar.</p>
+    </div>`;
 }
 
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
 // Select repo
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
 function selectRepo(name) {
   state.activeRepo = name;
   state.expanded.add(name);
@@ -1133,15 +1606,15 @@ function selectRepo(name) {
   loadWorkflows(name);
 }
 
-// ─────────────────────────────────────────────
-// Load workflows
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
+// Load workflows for a repo
+// ═══════════════════════════════════════════
 async function loadWorkflows(repoName) {
   const body = document.getElementById('content-body');
   const hasData = state.workflows[repoName] && state.workflows[repoName].length > 0;
 
   if (!hasData) {
-    body.innerHTML = '<div class="empty"><div class="spinner"></div><p style="margin-top:8px">Loading…</p></div>';
+    body.innerHTML = '<div class="empty"><div class="spinner"></div><p style="margin-top:12px">Loading workflows...</p></div>';
   }
   document.getElementById('content-header').style.display = 'flex';
   document.getElementById('content-title').textContent = repoName;
@@ -1157,7 +1630,6 @@ async function loadWorkflows(repoName) {
     state.branches[repoName] = brData.branches || [];
     renderWorkflows(repoName);
 
-    // Batch-load last runs
     const ids = state.workflows[repoName].map(w => w.id);
     if (ids.length) {
       const runs = await api(`/api/repos/${repoName}/workflows/batch-last-run`, {
@@ -1165,21 +1637,20 @@ async function loadWorkflows(repoName) {
       }).catch(() => ({}));
       if (runs) {
         state.workflows[repoName].forEach(wf => { if (runs[wf.id]) wf.last_run = runs[wf.id]; });
-        if (state.activeRepo === repoName) { renderWorkflows(repoName); renderRepos(); }
+        updateSidebarStatus();
+        if (state.activeRepo === repoName) renderWorkflows(repoName);
+        renderRepos();
       }
     }
   } catch(e) {
-    if (!hasData) {
-      body.innerHTML = `<div class="empty"><p style="color:var(--failure)">Error: ${esc(e.message)}</p></div>`;
-    } else {
-      toast(`Failed to refresh workflows: ${e.message}`, 'error');
-    }
+    if (!hasData) body.innerHTML = `<div class="empty"><p style="color:var(--failure)">Error loading workflows: ${esc(e.message)}</p></div>`;
+    else toast(`Failed to refresh: ${e.message}`, 'error');
   }
 }
 
-// ─────────────────────────────────────────────
-// Render workflows table
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
+// Render workflows (card layout for daily use)
+// ═══════════════════════════════════════════
 function renderWorkflows(repoName) {
   const wfs = state.workflows[repoName] || [];
   const branches = state.branches[repoName] || [];
@@ -1188,15 +1659,20 @@ function renderWorkflows(repoName) {
 
   document.getElementById('content-subtitle').textContent = `${wfs.length} workflow${wfs.length!==1?'s':''}`;
 
+  // Header actions
   const hdrRight = document.getElementById('content-header-right');
   hdrRight.innerHTML = `
+    <div class="view-toggle">
+      <button class="${state.viewMode==='cards'?'active':''}" onclick="setViewMode('cards')" title="Card view">▦ Cards</button>
+      <button class="${state.viewMode==='table'?'active':''}" onclick="setViewMode('table')" title="Table view">☰ Table</button>
+    </div>
     <button class="btn btn-sm btn-primary" onclick="triggerSelected('${esc(repoName)}')" id="trigger-sel-btn" disabled title="Select workflows to bulk-trigger">
       ▶ Run Selected
     </button>`;
 
   const body = document.getElementById('content-body');
   if (!wfs.length) {
-    body.innerHTML = '<div class="empty"><p>No workflows in this repository.</p></div>';
+    body.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><p>No workflows found in this repository.</p></div>';
     return;
   }
 
@@ -1206,68 +1682,90 @@ function renderWorkflows(repoName) {
     return list.map(br => `<option value="${esc(br)}"${br===b?' selected':''}>${esc(br)}</option>`).join('');
   }
 
-  body.innerHTML = `
+  if (state.viewMode === 'table') {
+    // Table view (compact, for power users)
+    body.innerHTML = `
 <table class="wf-table">
-  <thead>
-    <tr>
-      <th><input type="checkbox" id="sel-all" onchange="toggleSelectAll(this)" title="Select all"></th>
-      <th>Workflow</th>
-      <th>Status</th>
-      <th>Last run</th>
-      <th>Schedule</th>
-      <th>Frequency</th>
-      <th>Branch</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
+  <thead><tr>
+    <th style="width:36px"><input type="checkbox" id="sel-all" onchange="toggleSelectAll(this)" title="Select all"></th>
+    <th>Workflow</th><th>Status</th><th>Last run</th><th>Schedule</th><th>Frequency</th><th>Branch</th><th style="width:80px">Actions</th>
+  </tr></thead>
   <tbody>
     ${wfs.map(wf => {
       const key = cronToKey(wf.cron);
       const disabled = wf.state === 'disabled_manually';
-      return `
-<tr data-wfid="${wf.id}">
-  <td><input type="checkbox" class="wf-sel" value="${wf.id}" onchange="onSelectChange('${esc(repoName)}')"></td>
-  <td>
-    <div class="wf-info">
-      <div class="wf-title">${disabled?'🔒 ':''}<a href="${wf.last_run?.display_url||'#'}" target="_blank" style="color:inherit;text-decoration:none;" ${wf.last_run?.display_url?'':'onclick="return false"'}>${esc(wf.name)}</a></div>
-      <div class="wf-path">${esc(wf.path)}</div>
-    </div>
-  </td>
-  <td>${statusBadge(wf.last_run)}</td>
-  <td style="white-space:nowrap;font-size:12px;color:var(--text-muted)">
-    ${wf.last_run
-      ? `${wf.last_run.relative_time}<br><span style="font-size:11px">${wf.last_run.display_time}</span>`
-      : '—'}
-  </td>
-  <td>
-    <div class="toggle ${wf.enabled_schedule?'on':''}" onclick="toggleSchedule('${esc(repoName)}',${wf.id},this)" title="${wf.enabled_schedule?'Disable':'Enable'} schedule"></div>
-  </td>
-  <td style="white-space:nowrap">
-    <select class="ctrl-select" style="width:130px" onchange="updateFreq('${esc(repoName)}',${wf.id},this)" data-wfid="${wf.id}">
-      ${freqOptions(key)}
-    </select>
-    <span class="save-indicator" id="si-freq-${wf.id}">✓ saved</span>
-  </td>
-  <td>
-    <select class="ctrl-select" onchange="updateBranch('${esc(repoName)}',${wf.id},this.value)" data-wfid="${wf.id}">
-      ${branchOpts(wf.branch)}
-    </select>
-    <span class="save-indicator" id="si-branch-${wf.id}">✓ saved</span>
-  </td>
-  <td>
-    <button class="btn btn-sm btn-primary" onclick="triggerOne('${esc(repoName)}',${wf.id})" ${disabled?'disabled title="Disabled on GitHub"':''}>
-      ▶ Run
-    </button>
-  </td>
-</tr>`;
+      return `<tr data-wfid="${wf.id}">
+        <td><input type="checkbox" class="wf-sel" value="${wf.id}" onchange="onSelectChange('${esc(repoName)}')"></td>
+        <td>
+          <div class="wf-info">
+            <div class="wf-title">${disabled?'<span class="wf-disabled-badge">🔒 Disabled</span> ':''}<a href="${wf.last_run?.display_url||'#'}" target="_blank" style="color:inherit;text-decoration:none;" ${wf.last_run?.display_url?'':'onclick="return false"'}>${esc(wf.name)}</a></div>
+            <div class="wf-path">${esc(wf.path)}</div>
+          </div>
+        </td>
+        <td>${statusBadge(wf.last_run)}</td>
+        <td style="white-space:nowrap;font-size:12px;color:var(--text-muted)">${wf.last_run ? `${wf.last_run.relative_time}<br><span style="font-size:11px">${wf.last_run.display_time}</span>` : '<span class="s-none">never</span>'}</td>
+        <td><div class="toggle ${wf.enabled_schedule?'on':''}" onclick="toggleSchedule('${esc(repoName)}',${wf.id},this)" title="${wf.enabled_schedule?'Disable':'Enable'} schedule"></div></td>
+        <td style="white-space:nowrap"><select class="ctrl-select" style="width:130px" onchange="updateFreq('${esc(repoName)}',${wf.id},this)">${freqOptions(key)}</select><span class="save-indicator" id="si-freq-${wf.id}">✓ saved</span></td>
+        <td><select class="ctrl-select" onchange="updateBranch('${esc(repoName)}',${wf.id},this.value)">${branchOpts(wf.branch)}</select><span class="save-indicator" id="si-branch-${wf.id}">✓ saved</span></td>
+        <td><button class="btn btn-sm btn-primary" onclick="triggerOne('${esc(repoName)}',${wf.id})" ${disabled?'disabled':''}>▶ Run</button></td>
+      </tr>`;
     }).join('')}
   </tbody>
 </table>`;
+  } else {
+    // Card view (default, for daily use)
+    body.innerHTML = `<div class="wf-cards">
+      ${wfs.map(wf => {
+        const key = cronToKey(wf.cron);
+        const disabled = wf.state === 'disabled_manually';
+        return `
+      <div class="wf-card" data-wfid="${wf.id}">
+        <div class="wf-card-check">
+          <input type="checkbox" class="wf-sel" value="${wf.id}" onchange="onSelectChange('${esc(repoName)}')" title="Select for bulk action">
+        </div>
+        <div class="wf-card-info">
+          <div class="wf-card-title">
+            ${disabled?'<span class="wf-disabled-badge">🔒 Disabled on GitHub</span>':''}
+            <a href="${wf.last_run?.display_url||'#'}" target="_blank" ${wf.last_run?.display_url?'':'onclick="return false"'}>${esc(wf.name)}</a>
+          </div>
+          <div class="wf-card-path">${esc(wf.path)}</div>
+          ${wf.last_run ? `<div class="wf-card-last-run">Last: ${esc(wf.last_run.relative_time)} <span style="color:var(--text-dim)">(${esc(wf.last_run.display_time||'')})</span></div>` : '<div class="wf-card-last-run" style="color:var(--text-dim)">Has not been run yet</div>'}
+        </div>
+        <div class="wf-card-status">${statusBadge(wf.last_run)}</div>
+        <div class="wf-card-run">
+          <button class="btn btn-sm ${disabled?'btn-danger':'btn-primary'}" onclick="triggerOne('${esc(repoName)}',${wf.id})" ${disabled?'disabled title="Workflow disabled on GitHub"':''}>▶ Run</button>
+        </div>
+        <div class="wf-card-controls">
+          <div class="ctrl-group">
+            <label>Schedule</label>
+            <div class="toggle ${wf.enabled_schedule?'on':''}" onclick="toggleSchedule('${esc(repoName)}',${wf.id},this)" title="${wf.enabled_schedule?'Disable':'Enable'} auto-trigger"></div>
+          </div>
+          <div class="ctrl-group">
+            <label>Every</label>
+            <select class="ctrl-select" style="width:130px" onchange="updateFreq('${esc(repoName)}',${wf.id},this)">${freqOptions(key)}</select>
+            <span class="save-indicator" id="si-freq-${wf.id}">✓ saved</span>
+          </div>
+          <div class="ctrl-group">
+            <label>On</label>
+            <select class="ctrl-select" onchange="updateBranch('${esc(repoName)}',${wf.id},this.value)">${branchOpts(wf.branch)}</select>
+            <span class="save-indicator" id="si-branch-${wf.id}">✓ saved</span>
+          </div>
+        </div>
+      </div>`;
+      }).join('')}
+    </div>`;
+  }
 }
 
-// ─────────────────────────────────────────────
-// Selection
-// ─────────────────────────────────────────────
+function setViewMode(mode) {
+  state.viewMode = mode;
+  saveState();
+  if (state.activeRepo && state.activeRepo !== '_dashboard') renderWorkflows(state.activeRepo);
+}
+
+// ═══════════════════════════════════════════
+// Selection helpers
+// ═══════════════════════════════════════════
 function onSelectChange(repoName) {
   const any = !!document.querySelector('.wf-sel:checked');
   const btn = document.getElementById('trigger-sel-btn');
@@ -1283,35 +1781,28 @@ function toggleSelectAll(cb) {
   onSelectChange(state.activeRepo);
 }
 
-// ─────────────────────────────────────────────
-// Schedule toggle (main table)
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
+// Schedule toggle (main view)
+// ═══════════════════════════════════════════
 async function toggleSchedule(repoName, wfId, el) {
-  const wfs = state.workflows[repoName];
-  if (!wfs) return;
-  const wf = wfs.find(w => w.id === wfId);
-  if (!wf) return;
-
+  const wfs = state.workflows[repoName]; if (!wfs) return;
+  const wf = wfs.find(w => w.id === wfId); if (!wf) return;
   const newVal = !wf.enabled_schedule;
   wf.enabled_schedule = newVal;
   el.classList.toggle('on', newVal);
-
   try {
     await saveWfConfig(repoName, wfId, { enabled_schedule: newVal, cron: wf.cron, branch: wf.branch });
     renderRepos();
+    updateSidebarStatus();
   } catch(e) {
-    // revert
-    wf.enabled_schedule = !newVal;
-    el.classList.toggle('on', !newVal);
+    wf.enabled_schedule = !newVal; el.classList.toggle('on', !newVal);
     toast('Failed to save: ' + e.message, 'error');
   }
 }
 
 async function quickToggleSchedule(repoName, wfId) {
-  const wfs = state.workflows[repoName];
-  if (!wfs) return;
-  const wf = wfs.find(w => w.id === wfId);
-  if (!wf) return;
+  const wfs = state.workflows[repoName]; if (!wfs) return;
+  const wf = wfs.find(w => w.id === wfId); if (!wf) return;
   wf.enabled_schedule = !wf.enabled_schedule;
   try {
     await saveWfConfig(repoName, wfId, { enabled_schedule: wf.enabled_schedule, cron: wf.cron, branch: wf.branch });
@@ -1320,29 +1811,22 @@ async function quickToggleSchedule(repoName, wfId) {
     toast('Failed: ' + e.message, 'error');
   }
   renderRepos();
+  updateSidebarStatus();
   if (state.activeRepo === repoName) renderWorkflows(repoName);
   if (state.activeRepo === '_dashboard') renderDashboard();
 }
 
-// ─────────────────────────────────────────────
-// Frequency / cron updates
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
+// Frequency / branch updates
+// ═══════════════════════════════════════════
 async function updateFreq(repoName, wfId, el) {
   const val = el.value;
-  const wfs = state.workflows[repoName];
-  if (!wfs) return;
-  const wf = wfs.find(w => w.id === wfId);
-  if (!wf) return;
-
-  if (val === 'disabled') {
-    wf.cron = 'disabled';
-    wf.enabled_schedule = false;
-  } else {
-    wf.cron = FREQ_MAP[val];
-    wf.enabled_schedule = true;
-  }
-
+  const wfs = state.workflows[repoName]; if (!wfs) return;
+  const wf = wfs.find(w => w.id === wfId); if (!wf) return;
+  wf.cron = val === 'disabled' ? 'disabled' : FREQ_MAP[val];
+  wf.enabled_schedule = val !== 'disabled';
   renderWorkflows(repoName);
+  updateSidebarStatus();
   if (state.activeRepo === '_dashboard') renderDashboard();
   await _saveFreqAndShow(repoName, wf);
 }
@@ -1353,70 +1837,50 @@ async function _saveFreqAndShow(repoName, wf) {
     flashSaved(`si-freq-${wf.id}`);
     renderRepos();
     if (state.activeRepo === '_dashboard') renderDashboard();
-  } catch(e) {
-    toast('Save failed: ' + e.message, 'error');
-  }
+  } catch(e) { toast('Save failed: ' + e.message, 'error'); }
 }
 
-// ─────────────────────────────────────────────
-// Branch update
-// ─────────────────────────────────────────────
 async function updateBranch(repoName, wfId, branch) {
-  const wfs = state.workflows[repoName];
-  if (!wfs) return;
-  const wf = wfs.find(w => w.id === wfId);
-  if (!wf) return;
+  const wfs = state.workflows[repoName]; if (!wfs) return;
+  const wf = wfs.find(w => w.id === wfId); if (!wf) return;
   wf.branch = branch;
   try {
     await saveWfConfig(repoName, wfId, { enabled_schedule: wf.enabled_schedule, cron: wf.cron, branch });
     flashSaved(`si-branch-${wfId}`);
     renderRepos();
     if (state.activeRepo === '_dashboard') renderDashboard();
-  } catch(e) {
-    toast('Save failed: ' + e.message, 'error');
-  }
+  } catch(e) { toast('Save failed: ' + e.message, 'error'); }
 }
 
-// ─────────────────────────────────────────────
-// Core save helper — uses /api/config with merge
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
+// Core save helper
+// ═══════════════════════════════════════════
 async function saveWfConfig(repoName, wfId, settings) {
   await api('/api/config', {
     method: 'POST',
-    body: JSON.stringify({
-      repos: {
-        [repoName]: {
-          workflows: { [String(wfId)]: settings }
-        }
-      }
-    }),
+    body: JSON.stringify({ repos: { [repoName]: { workflows: { [String(wfId)]: settings } } } }),
   });
 }
 
 function flashSaved(id) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 1800);
+  const el = document.getElementById(id); if (!el) return;
+  el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 1800);
 }
 
-// ─────────────────────────────────────────────
-// Trigger
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
+// Trigger workflows
+// ═══════════════════════════════════════════
 async function triggerOne(repoName, wfId) {
   const wfs = state.workflows[repoName] || [];
   const wf = wfs.find(w => w.id === wfId);
   const branch = wf?.branch || state.repos.find(r=>r.name===repoName)?.default_branch || 'main';
 
-  // Find and disable the button
   const btn = document.querySelector(`button[onclick="triggerOne('${repoName}',${wfId})"]`);
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; }
 
   try {
-    await api(`/api/repos/${repoName}/workflows/${wfId}/trigger`, {
-      method: 'POST', body: JSON.stringify({ branch }),
-    });
-    toast(`▶ Triggered "${wf?.name || wfId}"`, 'success');
+    await api(`/api/repos/${repoName}/workflows/${wfId}/trigger`, { method: 'POST', body: JSON.stringify({ branch }) });
+    toast(`Triggered "${wf?.name || wfId}"`, 'success');
     setTimeout(() => loadWorkflows(repoName), 1500);
   } catch(e) {
     toast('Failed: ' + e.message, 'error');
@@ -1427,7 +1891,6 @@ async function triggerOne(repoName, wfId) {
 async function triggerSelected(repoName) {
   const checked = [...document.querySelectorAll('.wf-sel:checked')].map(c => parseInt(c.value));
   if (!checked.length) return;
-
   const wfs = state.workflows[repoName] || [];
   const defaultBranch = state.repos.find(r=>r.name===repoName)?.default_branch || 'main';
   const items = checked.map(id => {
@@ -1436,29 +1899,24 @@ async function triggerSelected(repoName) {
   });
 
   const btn = document.getElementById('trigger-sel-btn');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Running…'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Running...'; }
 
   try {
-    const result = await api('/api/trigger-selected', {
-      method: 'POST', body: JSON.stringify({ items }),
-    });
+    const result = await api('/api/trigger-selected', { method: 'POST', body: JSON.stringify({ items }) });
     const ok = result.results.filter(r => r.success).length;
     const fail = result.results.filter(r => !r.success).length;
-    if (fail) {
-      result.results.filter(r => !r.success).forEach(r => toast(`✗ ${r.name}: ${r.message}`, 'error'));
-    }
-    if (ok) toast(`▶ Triggered ${ok} workflow${ok>1?'s':''}`, 'success');
+    if (fail) result.results.filter(r => !r.success).forEach(r => toast(`Failed ${r.name}: ${r.message}`, 'error'));
+    if (ok) toast(`Triggered ${ok} workflow${ok>1?'s':''}`, 'success');
     setTimeout(() => loadWorkflows(repoName), 1500);
-  } catch(e) {
-    toast('Failed: ' + e.message, 'error');
-  } finally {
+  } catch(e) { toast('Failed: ' + e.message, 'error'); }
+  finally {
     if (btn) { btn.disabled = false; btn.innerHTML = '▶ Run Selected'; }
   }
 }
 
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
 // Scheduler toggle
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
 function updateSchedulerUI(on) {
   _schedulerOn = on;
   const badge = document.getElementById('scheduler-badge');
@@ -1474,45 +1932,34 @@ async function toggleScheduler() {
   const badge = document.getElementById('scheduler-badge');
   if (badge) badge.style.opacity = '0.5';
   try {
-    await api('/api/scheduler/status', {
-      method: 'POST', body: JSON.stringify({ enabled: newState }),
-    });
+    await api('/api/scheduler/status', { method: 'POST', body: JSON.stringify({ enabled: newState }) });
     updateSchedulerUI(newState);
     toast(`Scheduler ${newState ? 'enabled' : 'disabled'}`, 'success');
-  } catch(e) {
-    toast('Failed: ' + e.message, 'error');
-  } finally {
-    if (badge) badge.style.opacity = '1';
-  }
+  } catch(e) { toast('Failed: ' + e.message, 'error'); }
+  finally { if (badge) badge.style.opacity = '1'; }
 }
 
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
 // Config modal
-// ─────────────────────────────────────────────
-
+// ═══════════════════════════════════════════
 async function openConfig() {
   document.getElementById('config-modal').classList.add('open');
-  const [cfgData, schedData] = await Promise.all([
-    api('/api/config'),
-    api('/api/scheduler/status'),
-  ]);
+  const [cfgData, schedData] = await Promise.all([api('/api/config'), api('/api/scheduler/status')]);
   document.getElementById('cfg-org').value = cfgData.org || '';
   document.getElementById('cfg-pat').value = '';
   document.getElementById('cfg-refresh').value = cfgData.refresh_interval || 30;
   document.getElementById('cfg-timezone').value = cfgData.timezone || 'UTC';
   updateSchedulerUI(schedData.running);
 
-  // Populate repo visibility list
   const reposCfg = cfgData.repos || {};
   const visEl = document.getElementById('cfg-repo-visibility');
   if (state.repos.length) {
     visEl.innerHTML = state.repos.map(repo => {
       const repoHidden = reposCfg[repo.name]?.hidden === true;
-      return `
-<div class="cfg-repo-vis-row">
-  <input type="checkbox" class="cfg-repo-vis-chk" data-repo="${esc(repo.name)}" ${repoHidden?'checked':''} onchange="onRepoVisToggle(this)">
-  <label class="cfg-repo-vis-label">${esc(repo.name)}</label>
-</div>`;
+      return `<div class="cfg-repo-vis-row">
+        <input type="checkbox" class="cfg-repo-vis-chk" data-repo="${esc(repo.name)}" ${repoHidden?'checked':''} onchange="onRepoVisToggle(this)">
+        <label class="cfg-repo-vis-label">${esc(repo.name)}</label>
+      </div>`;
     }).join('');
   } else {
     visEl.innerHTML = '<div class="cfg-hint">No repos loaded yet.</div>';
@@ -1525,25 +1972,19 @@ function closeConfig() {
 }
 
 async function resetConfig() {
-  if (!confirm('This will clear all repo configs (including hidden/enabled/workflow settings). Global settings (timezone, refresh, PAT) will be kept. Continue?')) {
-    return;
-  }
+  if (!confirm('This will clear all repo configs (hidden/enabled/workflow settings). Global settings (timezone, refresh, PAT) will be kept. Continue?')) return;
   try {
     await api('/api/config/reset', { method: 'POST' });
     toast('Repo config cleared', 'success');
     closeConfig();
     await loadRepos();
     if (state.activeRepo) loadWorkflows(state.activeRepo);
-  } catch(e) {
-    toast(e.message, 'error');
-  }
+  } catch(e) { toast(e.message, 'error'); }
 }
 
 async function saveConfig() {
   const btn = document.getElementById('cfg-save-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Saving…';
-
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving...';
   try {
     const body = {
       timezone: document.getElementById('cfg-timezone').value.trim() || 'UTC',
@@ -1551,36 +1992,29 @@ async function saveConfig() {
     };
     const pat = document.getElementById('cfg-pat').value.trim();
     if (pat) body.github_pat = pat;
-
-    // Include repo visibility edits
     if (Object.keys(_repoVisEdits).length) {
       if (!body.repos) body.repos = {};
-      for (const repoName of Object.keys(_repoVisEdits)) {
-        if (!body.repos[repoName]) body.repos[repoName] = {};
-        body.repos[repoName].hidden = _repoVisEdits[repoName];
+      for (const [rn, hv] of Object.entries(_repoVisEdits)) {
+        if (!body.repos[rn]) body.repos[rn] = {};
+        body.repos[rn].hidden = hv;
       }
     }
-
     await api('/api/config', { method: 'POST', body: JSON.stringify(body) });
     toast('Configuration saved', 'success');
     closeConfig();
     await loadRepos();
-    if (state.activeRepo) loadWorkflows(state.activeRepo);
-  } catch(e) {
-    toast(e.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = 'Save';
-  }
+    if (state.activeRepo && state.activeRepo !== '_dashboard') loadWorkflows(state.activeRepo);
+    if (state.activeRepo === '_dashboard') renderDashboard();
+  } catch(e) { toast(e.message, 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = 'Save Changes'; }
 }
 
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
 // Auto-refresh
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
 let _refreshTimeout = null;
 async function refreshCycle() {
   if (_refreshTimeout) clearTimeout(_refreshTimeout);
-  
   if (state.activeRepo === '_dashboard') {
     await renderDashboard();
   } else if (state.activeRepo) {
@@ -1592,15 +2026,13 @@ async function refreshCycle() {
         const runs = await api(`/api/repos/${state.activeRepo}/workflows/batch-last-run`, {
           method: 'POST', body: JSON.stringify({ workflow_ids: ids }),
         }).catch(() => ({}));
-        if (runs) {
-          state.workflows[state.activeRepo].forEach(wf => { if (runs[wf.id]) wf.last_run = runs[wf.id]; });
-        }
+        if (runs) state.workflows[state.activeRepo].forEach(wf => { if (runs[wf.id]) wf.last_run = runs[wf.id]; });
       }
+      updateSidebarStatus();
       renderWorkflows(state.activeRepo);
       renderRepos();
     } catch(e) { console.debug('Refresh failed', e); }
   }
-  
   _refreshTimeout = setTimeout(refreshCycle, state.refreshInterval * 1000);
 }
 
@@ -1609,35 +2041,29 @@ function startRefresh(interval) {
   refreshCycle();
 }
 
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
 // Init
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════
 async function init() {
   loadPersistentState();
   try {
     const status = await api('/api/status');
     document.getElementById('org-label').textContent = status.org || '';
-  } catch(e) {
-    toast('Cannot connect to API.', 'error');
-    return;
-  }
+  } catch(e) { toast('Cannot connect to API.', 'error'); return; }
   try {
     const cfg = await api('/api/config');
     state.refreshInterval = cfg.refresh_interval || 30;
-  } catch(e) { /* use default */ }
+  } catch(e) {}
   try {
     const sched = await api('/api/scheduler/status');
     updateSchedulerUI(sched.running);
-  } catch(e) { /* ignore */ }
-  
+  } catch(e) {}
+
   await loadRepos();
-  
-  if (state.activeRepo === '_dashboard') {
-    renderDashboard();
-  } else if (state.activeRepo) {
-    loadWorkflows(state.activeRepo);
-  }
-  
+
+  if (state.activeRepo === '_dashboard') renderDashboard();
+  else if (state.activeRepo) loadWorkflows(state.activeRepo);
+
   startRefresh(state.refreshInterval);
 }
 
