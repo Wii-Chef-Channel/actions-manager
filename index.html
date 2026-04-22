@@ -281,8 +281,15 @@ body {
   padding: 9px 12px;
   font-size: 13px;
   border-bottom: 1px solid var(--border);
-  vertical-align: middle;
+  white-space: nowrap;
 }
+.wf-table td:nth-child(1) { width: 140px; }
+.wf-table td:nth-child(2) { min-width: 160px; }
+.wf-table td:nth-child(3) { width: 70px; text-align: center; }
+.wf-table td:nth-child(4) { width: 80px; text-align: center; }
+.wf-table td:nth-child(5) { width: 90px; }
+.wf-table td:nth-child(6) { width: 110px; }
+.wf-table td:nth-child(7) { width: 70px; text-align: right; }
 .wf-table tr:last-child td { border-bottom: none; }
 .wf-table tbody tr { transition: background 0.1s; }
 .wf-table tbody tr:hover td { background: var(--bg-hover); }
@@ -1054,6 +1061,7 @@ async function renderDashboard() {
             <th>Stability</th>
             <th>Activity (24h)</th>
             <th>Recent History</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -1088,6 +1096,7 @@ async function renderDashboard() {
                     `).join('')}
                   </div>
                 </td>
+                <td style="white-space:nowrap"><button class="btn btn-xs btn-primary" onclick="triggerOne('${esc(s.repo)}',${s.workflow_id})">Run</button></td>
               </tr>`;
           }).join('')}
         </tbody>
