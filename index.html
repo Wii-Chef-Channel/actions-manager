@@ -249,17 +249,6 @@ body {
 
 .content-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
 
-.freq-select {
-  padding: 2px 4px;
-  font-size: 12px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--bg);
-  color: var(--text);
-  cursor: pointer;
-}
-.freq-select:hover { border-color: var(--primary); }
-
 /* ── Workflow table ── */
 .wf-table { width: 100%; border-collapse: collapse; }
 .wf-table th {
@@ -281,15 +270,8 @@ body {
   padding: 9px 12px;
   font-size: 13px;
   border-bottom: 1px solid var(--border);
-  white-space: nowrap;
+  vertical-align: middle;
 }
-.wf-table td:nth-child(1) { width: 140px; }
-.wf-table td:nth-child(2) { min-width: 160px; }
-.wf-table td:nth-child(3) { width: 70px; text-align: center; }
-.wf-table td:nth-child(4) { width: 80px; text-align: center; }
-.wf-table td:nth-child(5) { width: 90px; }
-.wf-table td:nth-child(6) { width: 110px; }
-.wf-table td:nth-child(7) { width: 70px; text-align: right; }
 .wf-table tr:last-child td { border-bottom: none; }
 .wf-table tbody tr { transition: background 0.1s; }
 .wf-table tbody tr:hover td { background: var(--bg-hover); }
@@ -1061,7 +1043,6 @@ async function renderDashboard() {
             <th>Stability</th>
             <th>Activity (24h)</th>
             <th>Recent History</th>
-            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -1096,7 +1077,6 @@ async function renderDashboard() {
                     `).join('')}
                   </div>
                 </td>
-                <td style="white-space:nowrap"><button class="btn btn-xs btn-primary" onclick="triggerOne('${esc(s.repo)}',${s.workflow_id})">Run</button></td>
               </tr>`;
           }).join('')}
         </tbody>
@@ -1121,10 +1101,7 @@ async function renderDashboard() {
       if (!scheduled.length) {
         overviewEl.innerHTML = '<div class="empty"><p>No workflows have active schedules.</p></div>';
       } else {
-        overviewEl.innerHTML = `<table class="wf-table"><thead><tr><th>Repository</th><th>Workflow</th><th>Status</th><th>Frequency</th><th>Branch</th><th>Actions</th></tr></thead><tbody>${scheduled.map(({repo, wf}) => {
-          const opts = Object.entries(FREQ_MAP).map(([key, val]) => `<option value="${val}" ${wf.cron === val ? 'selected' : ''}>${key}</option>`).join('');
-          return `<tr><td style="font-weight:600;color:var(--primary)">${esc(repo)}</td><td><div class="wf-info"><div class="wf-title"><a href="${wf.last_run?.display_url||'#'}" target="_blank" style="color:inherit;text-decoration:none;">${esc(wf.name)}</a></div></div></td><td>${statusBadge(wf.last_run)}</td><td><select class="freq-select" onchange="dashboardUpdateFreq('${esc(repo)}',${wf.id},this)">${opts}</select></td><td>${esc(wf.branch || 'main')}</td><td><button class="btn btn-xs btn-primary" onclick="triggerOne('${esc(repo)}',${wf.id})">Run</button><button class="btn btn-xs btn-danger" style="margin-left:4px" onclick="quickToggleSchedule('${esc(repo)}',${wf.id})">Disable</button></td></tr>`;
-        }).join('')}</tbody></table>`;
+        overviewEl.innerHTML = `<table class="wf-table"><thead><tr><th>Repository</th><th>Workflow</th><th>Status</th><th>Frequency</th><th>Branch</th><th>Actions</th></tr></thead><tbody>${scheduled.map(({repo, wf}) => `<tr><td style="font-weight:600;color:var(--primary)">${esc(repo)}</td><td><div class="wf-info"><div class="wf-title"><a href="${wf.last_run?.display_url||'#'}" target="_blank" style="color:inherit;text-decoration:none;">${esc(wf.name)}</a></div></div></td><td>${statusBadge(wf.last_run)}</td><td>${esc(cronToKey(wf.cron))}</td><td>${esc(wf.branch || 'main')}</td><td><button class="btn btn-xs btn-primary" onclick="triggerOne('${esc(repo)}',${wf.id})">Run</button><button class="btn btn-xs btn-danger" style="margin-left:4px" onclick="quickToggleSchedule('${esc(repo)}',${wf.id})">Disable</button></td></tr>`).join('')}</tbody></table>`;
       }
     }
   } catch(e) {
@@ -1339,36 +1316,6 @@ async function quickToggleSchedule(repoName, wfId) {
   renderRepos();
   if (state.activeRepo === repoName) renderWorkflows(repoName);
   if (state.activeRepo === '_dashboard') renderDashboard();
-}
-
-// ─────────────────────────────────────────────
-// Dashboard inline frequency update
-// ─────────────────────────────────────────────
-async function dashboardUpdateFreq(repoName, wfId, el) {
-  const val = el.value;
-  const wfs = state.workflows[repoName];
-  if (!wfs) return;
-  const wf = wfs.find(w => w.id === wfId);
-  if (!wf) return;
-
-  const oldCron = wf.cron;
-  if (val === 'disabled') {
-    wf.cron = 'disabled';
-    wf.enabled_schedule = false;
-  } else {
-    wf.cron = FREQ_MAP[val];
-    wf.enabled_schedule = true;
-  }
-
-  try {
-    await saveWfConfig(repoName, wfId, { enabled_schedule: wf.enabled_schedule, cron: wf.cron, branch: wf.branch });
-    renderRepos();
-    if (state.activeRepo === '_dashboard') renderDashboard();
-  } catch(e) {
-    wf.cron = oldCron;
-    toast('Failed to update frequency: ' + e.message, 'error');
-    renderDashboard();
-  }
 }
 
 // ─────────────────────────────────────────────
