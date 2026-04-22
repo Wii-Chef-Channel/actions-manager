@@ -763,11 +763,13 @@ def scheduler_stats():
 
     total_runs = sum(r["run_count_24h"] for r in results)
     total_success = sum(r["success_count_24h"] for r in results)
-    
+    total_failures = sum(r["failure_count_24h"] for r in results)
+
     summary = {
         "total_scheduled": len(scheduled_items),
         "total_runs_24h": total_runs,
-        "success_rate_24h": round((total_success / total_runs * 100), 1) if total_runs > 0 else 0
+        "success_rate_24h": round((total_success / total_runs * 100), 1) if total_runs > 0 else 0,
+        "failure_count_24h": total_failures
     }
 
     return jsonify({"stats": results, "summary": summary})
