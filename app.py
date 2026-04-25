@@ -712,9 +712,20 @@ def scheduler_stats():
     now = datetime.now(timezone.utc)
     since = (now - timedelta(hours=24)).isoformat().replace("+00:00", "Z")
 
+    def compute_next_run(cron_expr):
+        """Return the next scheduled run time as an ISO string, or None on error."""
+        try:
+            return croniter(cron_expr, now).get_next(datetime).isoformat()
+        except Exception:
+            return None
+
     def fetch_wf_stats(item):
         rname = item["repo"]
         wid = item["workflow_id"]
+        enabled = item.get("enabled_schedule", False)
+        next_run = None
+        if enabled and item.get("cron"):
+            next_run = compute_next_run(item["cron"])
         try:
             # Fetch runs from last 24h
             data = _github_get(
@@ -722,11 +733,11 @@ def scheduler_stats():
                 {"created": f">{since}", "per_page": 100}
             )
             runs = data.get("workflow_runs", []) if isinstance(data, dict) else data
-            
+
             run_count = len(runs)
             success_count = len([r for r in runs if r.get("conclusion") == "success"])
             failure_count = len([r for r in runs if r.get("conclusion") in ("failure", "timed_out")])
-            
+
             # Bucket runs by hour for graphing
             hourly_buckets = [0] * 24
             for r in runs:
@@ -742,7 +753,8 @@ def scheduler_stats():
             return {
                 "repo": rname,
                 "workflow_id": wid,
-                "enabled_schedule": item.get("enabled_schedule", False),
+                "enabled_schedule": enabled,
+                "next_run": next_run,
                 "run_count_24h": run_count,
                 "success_count_24h": success_count,
                 "failure_count_24h": failure_count,
@@ -754,7 +766,8 @@ def scheduler_stats():
             return {
                 "repo": rname,
                 "workflow_id": wid,
-                "enabled_schedule": item.get("enabled_schedule", False),
+                "enabled_schedule": enabled,
+                "next_run": next_run,
                 "run_count_24h": 0,
                 "success_count_24h": 0,
                 "failure_count_24h": 0,

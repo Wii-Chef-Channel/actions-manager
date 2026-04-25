@@ -1191,6 +1191,19 @@ function cronToKey(cron) {
   return REV_FREQ[cron] || 'disabled';
 }
 
+function formatNextRun(iso) {
+  const dt = new Date(iso);
+  if (Number.isNaN(dt.getTime())) return 'N/A';
+  const h = dt.getUTCHours().toString().padStart(2, '0');
+  const m = dt.getUTCMinutes().toString().padStart(2, '0');
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (dt.toDateString() === today.toDateString()) return `Today ${h}:${m} UTC`;
+  if (dt.toDateString() === tomorrow.toDateString()) return `Tomorrow ${h}:${m} UTC`;
+  return `${(dt.toLocaleDateString('en-US', {month:'short',day:'numeric'}))} ${h}:${m} UTC`;
+}
+
 // ═══════════════════════════════════════════
 // API helper
 // ═══════════════════════════════════════════
@@ -1526,7 +1539,7 @@ async function renderDashboard() {
         <div style="overflow-x:auto;">
           <table class="wf-table wf-table-perf">
             <thead><tr>
-              <th>Repository</th><th>Workflow</th><th>Runs</th><th>Rate</th>
+              <th>Repository</th><th>Workflow</th><th>Next Run</th><th>Rate</th>
               <th>Activity (24h)</th><th>Recent History</th><th>Freq</th><th>Branch</th><th>Actions</th>
             </tr></thead>
             <tbody>
@@ -1548,7 +1561,7 @@ async function renderDashboard() {
                 return `<tr style="${!s.enabled_schedule ? 'opacity:0.5' : ''}">
                   <td style="font-weight:600;color:var(--primary);white-space:nowrap"><a href="https://github.com/${esc(state.org)}/${esc(s.repo)}/actions" target="_blank" style="color:inherit;text-decoration:none;">${esc(s.repo)}</a></td>
                   <td><div class="wf-info"><div class="wf-title">${esc(name)}${!s.enabled_schedule ? ' <span style="color:var(--text-dim);font-size:11px;font-weight:400">(disabled)</span>' : ''}</div></div></td>
-                  <td style="text-align:center;font-weight:600">${s.run_count_24h}</td>
+                  <td style="text-align:center;white-space:nowrap">${s.next_run ? formatNextRun(s.next_run) : 'N/A'}</td>
                   <td style="text-align:center"><span class="status-badge ${rate>=90?'s-success':'s-failure'}">${rate}%</span></td>
                   <td><div class="spark-wrap">${(s.hourly_runs||[]).map(c => `<div class="spark-bar ${c>0?'active':''}" style="height:${c===0?1:Math.min(28,c*4)}px"></div>`).join('')}</div></td>
                   <td><div class="history-dots">${(s.last_runs||[]).reverse().slice(-10).map(r => `<a href="${r.display_url}" target="_blank" class="h-dot h-${r.status==='in_progress'?'running':(r.conclusion||'none')}" title="${r.relative_time}: ${r.conclusion||r.status}"></a>`).join('')}</div></td>
