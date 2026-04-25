@@ -1180,6 +1180,7 @@ function loadPersistentState() {
 
 let _schedulerOn = false;
 let _repoVisEdits = {};
+let _appTimezone = 'UTC';  // set from /api/config on init
 
 // ═══════════════════════════════════════════
 // Frequency maps
@@ -1199,14 +1200,20 @@ function cronToKey(cron) {
 function formatNextRun(iso) {
   const dt = new Date(iso);
   if (Number.isNaN(dt.getTime())) return 'N/A';
-  const h = dt.getUTCHours().toString().padStart(2, '0');
-  const m = dt.getUTCMinutes().toString().padStart(2, '0');
-  const today = new Date();
-  const tomorrow = new Date(today);
+  // Format time in the configured timezone (falls back to local browser tz)
+  const tz = _appTimezone || undefined;
+  const h = (dt.toLocaleString('en-US', {timeZone: tz, hour: '2-digit', hour12: false}) || dt.getHours()).toString().padStart(2, '0');
+  const m = (dt.toLocaleString('en-US', {timeZone: tz, minute: '2-digit'}) || dt.getMinutes()).toString().padStart(2, '0');
+  // Determine day label in the configured timezone
+  const tzStr = dt.toLocaleString('en-US', {timeZone: tz, year: 'numeric', month: 'numeric', day: 'numeric'});
+  const todayStr = new Date().toLocaleString('en-US', {timeZone: tz, year: 'numeric', month: 'numeric', day: 'numeric'});
+  const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  if (dt.toDateString() === today.toDateString()) return `Today ${h}:${m} UTC`;
-  if (dt.toDateString() === tomorrow.toDateString()) return `Tomorrow ${h}:${m} UTC`;
-  return `${(dt.toLocaleDateString('en-US', {month:'short',day:'numeric'}))} ${h}:${m} UTC`;
+  const tomorrowStr = tomorrow.toLocaleString('en-US', {timeZone: tz, year: 'numeric', month: 'numeric', day: 'numeric'});
+  const shortDate = dt.toLocaleDateString('en-US', {timeZone: tz, month: 'short', day: 'numeric'});
+  if (tzStr === todayStr) return `Today ${h}:${m}`;
+  if (tzStr === tomorrowStr) return `Tomorrow ${h}:${m}`;
+  return `${shortDate} ${h}:${m}`;
 }
 
 // ═══════════════════════════════════════════
@@ -2097,6 +2104,7 @@ async function init() {
     const cfg = await api('/api/config');
     state.refreshInterval = cfg.refresh_interval || 30;
     state.org = cfg.org || '';
+    _appTimezone = cfg.timezone || 'UTC';
   } catch(e) {}
   try {
     const sched = await api('/api/scheduler/status');

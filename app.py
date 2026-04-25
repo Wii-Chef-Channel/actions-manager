@@ -237,10 +237,20 @@ def _github_post(url, body=None):
 # ---------------------------------------------------------------------------
 # Time formatting
 # ---------------------------------------------------------------------------
+def _get_tz():
+    """Return the configured timezone as a ZoneInfo object (fallback UTC)."""
+    try:
+        tz_name = (_load_config().get("timezone") or TIMEZONE or "UTC")
+        return ZoneInfo(tz_name)
+    except Exception:
+        return ZoneInfo("UTC")
+
+
 def _format_time(utc_str):
     try:
         dt = datetime.fromisoformat(utc_str.replace("Z", "+00:00"))
-        return dt.strftime("%Y-%m-%d %H:%M:%S")
+        dt_local = dt.astimezone(_get_tz())
+        return dt_local.strftime("%Y-%m-%d %H:%M:%S")
     except Exception:
         return utc_str
 
@@ -248,7 +258,7 @@ def _format_time(utc_str):
 def _relative_time(utc_str):
     try:
         dt = datetime.fromisoformat(utc_str.replace("Z", "+00:00"))
-        now = datetime.now(timezone.utc)
+        now = datetime.now(_get_tz())
         total_seconds = int((now - dt).total_seconds())
         if total_seconds < 0:
             return "in future"
@@ -659,7 +669,7 @@ def config():
     return jsonify({
         "org": ORG_NAME,
         "refresh_interval": REFRESH_INTERVAL,
-        "timezone": TIMEZONE,
+        "timezone": cfg.get("timezone") or TIMEZONE,
         "pat_configured": bool(pat_set),
         "repos": cfg.get("repos", {}),
     })
@@ -709,13 +719,18 @@ def scheduler_stats():
     if not scheduled_items:
         return jsonify({"stats": [], "summary": {"total_runs_24h": 0, "success_rate_24h": 0, "total_scheduled": len([w for r in repos_config.values() for w in r.get("workflows", {}).values() if w.get("enabled_schedule")])}})
 
-    now = datetime.now(timezone.utc)
+    tz = _get_tz()
+    now = datetime.now(tz)
     since = (now - timedelta(hours=24)).isoformat().replace("+00:00", "Z")
 
     def compute_next_run(cron_expr):
-        """Return the next scheduled run time as an ISO string, or None on error."""
+        """Return the next scheduled run time as an ISO string in the configured timezone."""
         try:
-            return croniter(cron_expr, now).get_next(datetime).isoformat()
+            nxt = croniter(cron_expr, now).get_next(datetime)
+            # Attach the configured tz so the ISO string carries the correct offset
+            if nxt.tzinfo is None:
+                nxt = nxt.replace(tzinfo=tz)
+            return nxt.isoformat()
         except Exception:
             return None
 
