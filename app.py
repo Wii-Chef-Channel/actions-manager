@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, jsonify, request, send_from_directory
 import requests
+import subprocess
 from croniter import croniter
 
 # ---------------------------------------------------------------------------
@@ -222,16 +223,45 @@ def _github_get(url, params=None):
 
 
 def _github_post(url, body=None):
-    r = _session.post(url, json=body or {}, headers=_headers(), timeout=15)
-    if r.status_code == 401:
-        raise RuntimeError("GitHub PAT is invalid or expired")
-    if r.status_code == 403:
-        raise RuntimeError("GitHub API rate limit exceeded. Retry in 60s")
-    if r.status_code not in (200, 201, 204):
-        raise RuntimeError(f"GitHub API error {r.status_code}: {r.text[:200]}")
-    if r.status_code == 204:
-        return {"message": "success"}
-    return r.json()
+    """POST to GitHub API, with fallback to gh CLI for workflow_dispatch if API returns 422."""
+    try:
+        r = _session.post(url, json=body or {}, headers=_headers(), timeout=15)
+        if r.status_code == 401:
+            raise RuntimeError("GitHub PAT is invalid or expired")
+        if r.status_code == 403:
+            raise RuntimeError("GitHub API rate limit exceeded. Retry in 60s")
+        
+        # If API fails with 422 for a dispatch, try gh CLI fallback
+        if r.status_code == 422 and "/actions/workflows/" in url and "/dispatches" in url:
+            dispatch_match = re.search(r"repos/([^/]+)/([^/]+)/actions/workflows/([^/]+)/dispatches", url)
+            if dispatch_match:
+                org, repo, wf_id = dispatch_match.groups()
+                ref = (body or {}).get("ref", "main")
+                logger.info(f"API returned 422 for {org}/{repo} ({wf_id}). Trying gh CLI fallback...")
+                
+                cmd = ["gh", "workflow", "run", str(wf_id), "--repo", f"{org}/{repo}", "--ref", ref]
+                env = os.environ.copy()
+                pat = _get_pat()
+                if pat:
+                    env["GH_TOKEN"] = pat
+                
+                try:
+                    subprocess.run(cmd, env=env, check=True, capture_output=True, text=True)
+                    return {"message": "success (via gh cli)"}
+                except subprocess.CalledProcessError as e:
+                    err_msg = e.stderr.strip() or str(e)
+                    logger.error(f"gh command failed: {err_msg}")
+                    # Fall through to original error if gh also fails
+                except Exception as e:
+                    logger.error(f"Failed to run gh cli: {e}")
+
+        if r.status_code not in (200, 201, 204):
+            raise RuntimeError(f"GitHub API error {r.status_code}: {r.text[:200]}")
+        if r.status_code == 204:
+            return {"message": "success"}
+        return r.json()
+    except requests.exceptions.RequestException as e:
+        raise RuntimeError(f"Network error: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -913,17 +943,12 @@ def _check_and_trigger_all():
             # Determine whether this workflow should fire now.
             # We fire when: (a) the last cron boundary is within a reasonable
             # window, and (b) we haven't already fired for this boundary.
-            # The window is sized so that even if the scheduler loop is slightly
-            # slow, we still catch the boundary.
-            seconds_since_boundary = (now - prev_trigger).total_seconds()
-            # Window: allow up to 3 check-intervals of drift to handle overhead.
-            # For a 60s interval this means 180s — wide enough to catch any boundary
-            # that should have fired since the last check cycle.
+            boundary_ts = prev_trigger.timestamp()
             fire_window = _scheduler_config["interval"] * 3
-            is_due = 0 <= seconds_since_boundary < fire_window
-            # Don't re-trigger the same workflow within the cooldown window
-            cooldown = _scheduler_config["interval"] * 2
-            if is_due and (not last or (now.timestamp() - last) >= cooldown):
+            is_due = 0 <= (now.timestamp() - boundary_ts) < fire_window
+
+            # Use last < boundary_ts to ensure we only trigger once per boundary
+            if is_due and (not last or last < boundary_ts):
                 to_trigger.append((repo_name, wf_id, wf_cfg.get("branch") or "main"))
 
     if not to_trigger:
@@ -1016,11 +1041,12 @@ def _stop_scheduler():
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+_start_scheduler()
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     host = os.environ.get("HOST", "0.0.0.0")
     logger.info(f"Starting actions-manager on {host}:{port}")
-    _start_scheduler()
     try:
         app.run(host=host, port=port, debug=False)
     finally:
