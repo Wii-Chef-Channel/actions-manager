@@ -1507,7 +1507,7 @@ async function renderDashboard() {
             ${stats.map((s,i) => `
               <div class="legend-item">
                 <div class="legend-color" style="background:${getLineColor(i)}"></div>
-                <span>${esc(s.repo)} : ${(state.workflows[s.repo]||[]).find(w=>String(w.id)===String(s.workflow_id))?.name || s.workflow_id}</span>
+                <span><a href="https://github.com/${esc(state.org)}/${esc(s.repo)}/actions" target="_blank" style="color:inherit;text-decoration:none;">${esc(s.repo)}</a> : ${(state.workflows[s.repo]||[]).find(w=>String(w.id)===String(s.workflow_id))?.name || s.workflow_id}</span>
               </div>
             `).join('')}
           </div>
@@ -1546,7 +1546,7 @@ async function renderDashboard() {
                   ? repoBranches.map(br => `<option value="${esc(br)}"${br===wfBranch?' selected':''}>${esc(br)}</option>`).join('')
                   : `<option value="${esc(wfBranch)}">${esc(wfBranch)}</option>`;
                 return `<tr style="${!s.enabled_schedule ? 'opacity:0.5' : ''}">
-                  <td style="font-weight:600;color:var(--primary);white-space:nowrap">${esc(s.repo)}</td>
+                  <td style="font-weight:600;color:var(--primary);white-space:nowrap"><a href="https://github.com/${esc(state.org)}/${esc(s.repo)}/actions" target="_blank" style="color:inherit;text-decoration:none;">${esc(s.repo)}</a></td>
                   <td><div class="wf-info"><div class="wf-title">${esc(name)}${!s.enabled_schedule ? ' <span style="color:var(--text-dim);font-size:11px;font-weight:400">(disabled)</span>' : ''}</div></div></td>
                   <td style="text-align:center;font-weight:600">${s.run_count_24h}</td>
                   <td style="text-align:center"><span class="status-badge ${rate>=90?'s-success':'s-failure'}">${rate}%</span></td>
@@ -2077,6 +2077,7 @@ async function init() {
   try {
     const cfg = await api('/api/config');
     state.refreshInterval = cfg.refresh_interval || 30;
+    state.org = cfg.org || '';
   } catch(e) {}
   try {
     const sched = await api('/api/scheduler/status');
