@@ -806,14 +806,18 @@ def scheduler_status():
                 # Stop any existing thread first to avoid spawning doubles
                 if _scheduler_state["thread"] is not None:
                     _stop_scheduler()
+                # Persist BEFORE _start_scheduler() so its disk read sees the new value
+                cfg = _load_config()
+                cfg.setdefault("_scheduler", {})["running"] = True
+                _atomic_write(CONFIG_PATH, cfg)
                 _scheduler_state["running"] = True
                 _start_scheduler()
             else:
                 _stop_scheduler()
-            # Persist scheduler state to disk so it survives refresh/restart
-            cfg = _load_config()
-            cfg.setdefault("_scheduler", {})["running"] = _scheduler_state["running"]
-            _atomic_write(CONFIG_PATH, cfg)
+                # Persist scheduler state to disk so it survives refresh/restart
+                cfg = _load_config()
+                cfg.setdefault("_scheduler", {})["running"] = False
+                _atomic_write(CONFIG_PATH, cfg)
         except Exception as e:
             logger.exception(f"Scheduler toggle error: {e}")
             return jsonify({"error": str(e)}), 500
