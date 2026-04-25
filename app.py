@@ -810,6 +810,10 @@ def scheduler_status():
                 _start_scheduler()
             else:
                 _stop_scheduler()
+            # Persist scheduler state to disk so it survives refresh/restart
+            cfg = _load_config()
+            cfg.setdefault("_scheduler", {})["running"] = _scheduler_state["running"]
+            _atomic_write(CONFIG_PATH, cfg)
         except Exception as e:
             logger.exception(f"Scheduler toggle error: {e}")
             return jsonify({"error": str(e)}), 500
