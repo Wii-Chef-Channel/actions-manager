@@ -910,9 +910,20 @@ def _check_and_trigger_all():
                 logger.error(f"Invalid cron {cron_expr} for {key}: {e}")
                 continue
 
-            # Due if previous trigger was in the last 60s and we haven't triggered in the last 120s
-            is_due = 0 <= (now - prev_trigger).total_seconds() < 60
-            if is_due and (not last or (now.timestamp() - last) >= 120):
+            # Determine whether this workflow should fire now.
+            # We fire when: (a) the last cron boundary is within a reasonable
+            # window, and (b) we haven't already fired for this boundary.
+            # The window is sized so that even if the scheduler loop is slightly
+            # slow, we still catch the boundary.
+            seconds_since_boundary = (now - prev_trigger).total_seconds()
+            # Window: allow up to 3 check-intervals of drift to handle overhead.
+            # For a 60s interval this means 180s — wide enough to catch any boundary
+            # that should have fired since the last check cycle.
+            fire_window = _scheduler_config["interval"] * 3
+            is_due = 0 <= seconds_since_boundary < fire_window
+            # Don't re-trigger the same workflow within the cooldown window
+            cooldown = _scheduler_config["interval"] * 2
+            if is_due and (not last or (now.timestamp() - last) >= cooldown):
                 to_trigger.append((repo_name, wf_id, wf_cfg.get("branch") or "main"))
 
     if not to_trigger:
