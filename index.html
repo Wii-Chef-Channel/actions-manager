@@ -1158,6 +1158,7 @@ function saveState() {
     activeRepo: state.activeRepo,
     expanded: Array.from(state.expanded),
     viewMode: state.viewMode,
+    schedulerOn: _schedulerOn,
   }));
 }
 
@@ -1169,6 +1170,10 @@ function loadPersistentState() {
       state.activeRepo = data.activeRepo || null;
       state.viewMode = data.viewMode || 'cards';
       if (Array.isArray(data.expanded)) state.expanded = new Set(data.expanded);
+      // Restore scheduler UI synchronously to avoid flash on page load
+      if (typeof data.schedulerOn === 'boolean') {
+        updateSchedulerUI(data.schedulerOn);
+      }
     }
   } catch(e) { console.warn('Failed to load state', e); }
 }
@@ -1971,6 +1976,7 @@ async function toggleScheduler() {
   try {
     await api('/api/scheduler/status', { method: 'POST', body: JSON.stringify({ enabled: newState }) });
     updateSchedulerUI(newState);
+    saveState();
     toast(`Scheduler ${newState ? 'enabled' : 'disabled'}`, 'success');
   } catch(e) { toast('Failed: ' + e.message, 'error'); }
   finally { if (badge) badge.style.opacity = '1'; }
@@ -2095,6 +2101,7 @@ async function init() {
   try {
     const sched = await api('/api/scheduler/status');
     updateSchedulerUI(sched.running);
+    saveState();
   } catch(e) {}
 
   await loadRepos();
